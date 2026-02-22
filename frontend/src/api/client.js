@@ -1,8 +1,8 @@
 import axios from 'axios';
+import { Platform } from 'react-native';
 
-// Ensure this works for Android emulator (10.0.2.2 usually) or iOS (localhost). 
-// Since user is testing possibly on web or emulator, localhost is fine for now but might need tweak.
-const baseURL = 'http://localhost:5000';
+// Ensure this works for Android emulator (10.0.2.2) and iOS/Web (localhost). 
+const baseURL = Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000';
 
 const client = axios.create({
     baseURL,
