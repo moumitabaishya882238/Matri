@@ -4,7 +4,7 @@ async function testChat() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                message: "Hi MATRI! My blood pressure is 120/80 today. I bled moderately. I slept for about 6 hours and have no fever."
+                message: "Hi Matte! I'm so exhausted today, my baby just won't stop crying. Also my blood pressure is 110/70."
             })
         });
         const data = await res.json();
