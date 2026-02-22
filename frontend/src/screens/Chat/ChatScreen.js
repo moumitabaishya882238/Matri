@@ -1,11 +1,11 @@
 import React, { useState, useRef } from 'react';
-import { View, Text, TextInput, Button, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, Button, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
 import client from '../../api/client';
 
+const INITIAL_MESSAGE = { id: '1', text: "Hello Mother! How are you feeling today?", sender: 'MATRI' };
+
 const ChatScreen = () => {
-    const [messages, setMessages] = useState([
-        { id: '1', text: "Hello Mother! How are you feeling today?", sender: 'MATRI' }
-    ]);
+    const [messages, setMessages] = useState([INITIAL_MESSAGE]);
     const [inputText, setInputText] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const flatListRef = useRef();
@@ -35,6 +35,32 @@ const ChatScreen = () => {
         }
     };
 
+    const handleReset = async () => {
+        Alert.alert(
+            "Restart Check-in",
+            "Are you sure you want to completely erase today's health check-in and start over?",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Yes, Restart",
+                    style: "destructive",
+                    onPress: async () => {
+                        setIsLoading(true);
+                        try {
+                            await client.post('/chat/reset');
+                            setMessages([INITIAL_MESSAGE]); // Wipe chat visually
+                        } catch (error) {
+                            Alert.alert("Error", "Could not reset the check-in. Try again.");
+                            console.error(error);
+                        } finally {
+                            setIsLoading(false);
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     const renderBubble = ({ item }) => {
         const isBot = item.sender === 'MATRI';
         return (
@@ -52,6 +78,13 @@ const ChatScreen = () => {
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         >
+            <View style={styles.header}>
+                <Text style={styles.headerTitle}>Daily Consultation</Text>
+                <TouchableOpacity onPress={handleReset} style={styles.resetButton} disabled={isLoading}>
+                    <Text style={styles.resetButtonText}>Reset</Text>
+                </TouchableOpacity>
+            </View>
+
             <FlatList
                 ref={flatListRef}
                 data={messages}
@@ -86,6 +119,33 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#FAF9F6',
+    },
+    header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 15,
+        paddingVertical: 12,
+        backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+        marginTop: Platform.OS === 'ios' ? 40 : 20, // push down below status bar slightly if no proper header
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#333'
+    },
+    resetButton: {
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        backgroundColor: '#ffebe6',
+        borderRadius: 15,
+    },
+    resetButtonText: {
+        color: '#ff4d4f',
+        fontSize: 14,
+        fontWeight: '600'
     },
     listContent: {
         padding: 15,

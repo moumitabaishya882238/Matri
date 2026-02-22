@@ -23,16 +23,12 @@ router.post('/', requireLogin, async (req, res) => {
     }
 
     try {
-        // 1. Process via Gemini to extract structured JSON
-        const extractedData = await processChatMessage(message);
-
-        // 2. Validate and map extracted data to DB schema format
+        // 1. Find if a log already exists for today to update it, otherwise create new
         const startOfDay = new Date();
         startOfDay.setHours(0, 0, 0, 0);
         const endOfDay = new Date();
         endOfDay.setHours(23, 59, 59, 999);
 
-        // Find if a log already exists for today to update it, otherwise create new
         let todayLog = await DailyHealthLog.findOne({
             motherId: req.user._id,
             date: { $gte: startOfDay, $lte: endOfDay }
@@ -45,35 +41,31 @@ router.post('/', requireLogin, async (req, res) => {
             });
         }
 
-        // Merge extracted data carefully
-        if (extractedData.bp_systolic !== null) todayLog.systolicBP = extractedData.bp_systolic;
-        if (extractedData.bp_diastolic !== null) todayLog.diastolicBP = extractedData.bp_diastolic;
-        if (extractedData.bleeding !== null) todayLog.bleedingLevel = extractedData.bleeding;
-        if (extractedData.fever !== null) todayLog.fever = (extractedData.fever === 'yes');
-        if (extractedData.pain !== null) todayLog.pain = extractedData.pain;
-        if (extractedData.sleep_hours !== null) todayLog.sleepHours = extractedData.sleep_hours;
+        // 2. Prepare current state for AI Context
+        const currentState = {
+            bp_systolic: todayLog.systolicBP || null,
+            bp_diastolic: todayLog.diastolicBP || null,
+            bleeding: todayLog.bleedingLevel || null,
+            fever: todayLog.fever !== null && todayLog.fever !== undefined ? (todayLog.fever ? "yes" : "no") : null,
+            pain: todayLog.pain || null,
+            sleep_hours: todayLog.sleepHours || null
+        };
 
-        // Save to database
+        // 3. Process via Gemini with memory context
+        const aiResponse = await processChatMessage(message, JSON.stringify(currentState));
+        const extractedData = aiResponse.extracted_data || {};
+        const botReply = aiResponse.bot_reply || "I'm having a little trouble understanding. Could you tell me how you are feeling again?";
+
+        // 4. Merge new extracted data carefully
+        if (extractedData.bp_systolic !== null && extractedData.bp_systolic !== undefined) todayLog.systolicBP = extractedData.bp_systolic;
+        if (extractedData.bp_diastolic !== null && extractedData.bp_diastolic !== undefined) todayLog.diastolicBP = extractedData.bp_diastolic;
+        if (extractedData.bleeding !== null && extractedData.bleeding !== undefined) todayLog.bleedingLevel = extractedData.bleeding;
+        if (extractedData.fever !== null && extractedData.fever !== undefined) todayLog.fever = (extractedData.fever === 'yes');
+        if (extractedData.pain !== null && extractedData.pain !== undefined) todayLog.pain = extractedData.pain;
+        if (extractedData.sleep_hours !== null && extractedData.sleep_hours !== undefined) todayLog.sleepHours = extractedData.sleep_hours;
+
+        // 5. Save to database
         await todayLog.save();
-
-        // 3. Draft a response message back to the user
-        // (In future phases, the AI will generate the natural language response too. 
-        // Here we will do a basic manual acknowledgement or follow-up)
-
-        let botReply = '';
-
-        const missingFields = [];
-        if (todayLog.systolicBP === null || todayLog.diastolicBP === null) missingFields.push('Blood Pressure');
-        if (todayLog.bleedingLevel === null) missingFields.push('Bleeding Level');
-        if (todayLog.fever === null) missingFields.push('Fever Status');
-        if (todayLog.pain === null) missingFields.push('Pain Level');
-        if (todayLog.sleepHours === null) missingFields.push('Sleep Hours');
-
-        if (missingFields.length === 0) {
-            botReply = "Thank you! I have recorded all your health updates for today.";
-        } else {
-            botReply = `Got it! I recorded the details you mentioned. Could you also tell me about: ${missingFields.join(', ')}?`;
-        }
 
         res.json({
             reply: botReply,
@@ -84,6 +76,31 @@ router.post('/', requireLogin, async (req, res) => {
     } catch (error) {
         console.error("Chat endpoint error:", error);
         res.status(500).json({ error: 'Failed to process chat message', details: error.message });
+    }
+});
+
+// @route   POST /chat/reset
+// @desc    Clear today's health log so the mother can start over
+router.post('/reset', requireLogin, async (req, res) => {
+    try {
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const result = await DailyHealthLog.deleteOne({
+            motherId: req.user._id,
+            date: { $gte: startOfDay, $lte: endOfDay }
+        });
+
+        if (result.deletedCount > 0) {
+            res.json({ success: true, message: "Today's log has been completely cleared." });
+        } else {
+            res.json({ success: true, message: "No log existed for today to clear." });
+        }
+    } catch (error) {
+        console.error("Chat reset error:", error);
+        res.status(500).json({ error: 'Failed to reset chat log' });
     }
 });
 
