@@ -16,10 +16,6 @@ const HomeScreen = ({ navigation }) => {
                 <Text style={styles.statusText}>Current Status: {riskColor}</Text>
             </View>
 
-            <View style={styles.chatPlaceholder}>
-                <Text style={styles.placeholderText}>MATRI Daily Check-in Interface will appear here.</Text>
-            </View>
-
             <Button title="Logout" onPress={() => navigation.replace('Login')} />
         </View>
     );
@@ -61,19 +57,6 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
         color: '#fff'
-    },
-    chatPlaceholder: {
-        flex: 1,
-        borderWidth: 1,
-        borderColor: '#eee',
-        borderRadius: 10,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#fff',
-        marginBottom: 20
-    },
-    placeholderText: {
-        color: '#999'
     }
 });
 
