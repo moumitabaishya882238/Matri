@@ -1,0 +1,10 @@
+node_modules/
+.env
+.env.local
+.DS_Store
+ai_test_output.txt
+ai_test_output2.txt
+out.txt
+test_bp.js
+test_convo.js
+test_reset.js
