@@ -42,6 +42,7 @@ mongoose.connect(process.env.MONGODB_URI)
 app.use('/auth', require('./routes/auth'));
 app.use('/mother', require('./routes/mother'));
 app.use('/chat', require('./routes/chat'));
+app.use('/sync', require('./routes/sync'));
 
 // Root Endpoint
 app.get('/', (req, res) => {

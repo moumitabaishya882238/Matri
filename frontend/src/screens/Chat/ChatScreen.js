@@ -6,6 +6,9 @@ import client from '../../api/client';
 import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 import Tts from 'react-native-tts';
 import AnimatedFace from '../../components/AnimatedFace';
+import { useNetInfo } from '@react-native-community/netinfo';
+import OfflineStorageService from '../../services/OfflineStorageService';
+import { calculateDailyRisk } from '../../utils/localRiskCalculator';
 
 // Premium Medical Color Palette
 const COLORS = {
@@ -51,6 +54,21 @@ const ChatScreen = () => {
     const audioRecorderPlayer = useRef(AudioRecorderPlayer).current;
     const insets = useSafeAreaInsets();
 
+    const netInfo = useNetInfo();
+    const isOffline = netInfo.isConnected === false;
+    const [offlineStep, setOfflineStep] = useState(0);
+    const [offlineData, setOfflineData] = useState({});
+
+    const OFFLINE_QUESTIONS = [
+        "It looks like we are offline. Let's do a quick structured check-in. What was your blood pressure today? (For example, type 120/80)",
+        "How would you describe your bleeding level today? (Type: none, mild, moderate, or heavy)",
+        "Do you have a fever? (Type: yes or no)",
+        "What is your pain level on a scale of 0 to 10?",
+        "How many hours did you sleep last night?",
+        "How is your mood today on a scale of 1 to 10?",
+        "Thank you. Your health check-in is saved securely on your device and will sync automatically when your internet connection returns. You are safe to close the app."
+    ];
+
     // One-time setup & configure on mount
     useEffect(() => {
         configureTts();
@@ -81,16 +99,71 @@ const ChatScreen = () => {
         }, [])
     );
 
+    const handleOfflineFlow = async (text) => {
+        let currentData = { ...offlineData };
+        let nextStep = offlineStep;
+
+        // Parse current answer
+        if (offlineStep === 0) { // BP
+            const parts = text.split('/');
+            if (parts.length === 2) {
+                currentData.bp_systolic = parseInt(parts[0]);
+                currentData.bp_diastolic = parseInt(parts[1]);
+            }
+            nextStep = 1;
+        } else if (offlineStep === 1) { // Bleeding
+            currentData.bleeding = text.toLowerCase().trim();
+            nextStep = 2;
+        } else if (offlineStep === 2) { // Fever
+            currentData.fever = text.toLowerCase().includes('yes') ? 'yes' : 'no';
+            nextStep = 3;
+        } else if (offlineStep === 3) { // Pain
+            currentData.pain = parseInt(text) || 0;
+            nextStep = 4;
+        } else if (offlineStep === 4) { // Sleep
+            currentData.sleep_hours = parseInt(text) || 0;
+            nextStep = 5;
+        } else if (offlineStep === 5) { // Mood
+            currentData.mood_score = parseInt(text) || 0;
+
+            // Finish offline checkin
+            nextStep = 6;
+
+            // Calculate Risk
+            const risk = calculateDailyRisk(currentData);
+            if (risk === 'Red') setShowEmergency(true);
+
+            // Save local log securely
+            await OfflineStorageService.saveLogLocal(currentData);
+        }
+
+        setOfflineData(currentData);
+        setOfflineStep(nextStep);
+
+        const botReply = OFFLINE_QUESTIONS[nextStep === 6 ? 6 : nextStep];
+        const botMessage = { id: (Date.now() + 1).toString(), text: botReply, sender: 'MATRI' };
+        setMessages(prev => [...prev, botMessage]);
+        Tts.speak(botReply);
+    };
+
     const handleSend = async () => {
         if (!inputText.trim()) return;
 
-        const userMessage = { id: Date.now().toString(), text: inputText, sender: 'Mother' };
+        const userText = inputText.trim();
+        const userMessage = { id: Date.now().toString(), text: userText, sender: 'Mother' };
         setMessages(prev => [...prev, userMessage]);
         setInputText('');
+
+        if (isOffline) {
+            handleOfflineFlow(userText);
+            setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+            return;
+        }
+
         setIsLoading(true);
 
         try {
-            const response = await client.post('/chat', { message: userMessage.text });
+            const response = await client.post('/chat', { message: userText });
             const botMessage = { id: (Date.now() + 1).toString(), text: response.data.reply, sender: 'MATRI' };
             setMessages(prev => [...prev, botMessage]);
             Tts.speak(response.data.reply);
@@ -180,6 +253,11 @@ const ChatScreen = () => {
     };
 
     const sendAudioMessage = async (audioUri) => {
+        if (isOffline) {
+            Alert.alert("Offline Mode", "Voice processing requires internet. Please type your responses manually for the offline check-in.");
+            return;
+        }
+
         setIsLoading(true);
         const tempMsgId = Date.now().toString();
         setMessages(prev => [...prev, { id: tempMsgId, text: "(Processing Voice...)", sender: 'Mother' }]);
@@ -247,7 +325,10 @@ const ChatScreen = () => {
             <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
             <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
-                <Text style={styles.headerTitle}>Clinical Check-in</Text>
+                <View>
+                    <Text style={styles.headerTitle}>Clinical Check-in</Text>
+                    {isOffline && <Text style={{ color: COLORS.warning, fontSize: 13, fontWeight: '700', marginTop: 2 }}>⚠️ Offline Mode Active</Text>}
+                </View>
                 <TouchableOpacity onPress={handleReset} style={styles.resetButton} disabled={isLoading}>
                     <Text style={styles.resetButtonText}>Reset Session</Text>
                 </TouchableOpacity>

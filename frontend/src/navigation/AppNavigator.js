@@ -1,9 +1,11 @@
-import React, { useContext } from 'react';
+import React, { useContext, useEffect } from 'react';
 import { View, ActivityIndicator, TouchableOpacity, Text, Alert } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { AuthContext } from '../context/AuthContext';
+import NetInfo from '@react-native-community/netinfo';
+import SyncService from '../services/SyncService';
 
 import LoginScreen from '../screens/Auth/LoginScreen';
 import HomeScreen from '../screens/Home/HomeScreen';
@@ -60,6 +62,18 @@ const MainTabs = () => {
 
 const AppNavigator = () => {
     const { user, isLoading } = useContext(AuthContext);
+
+    // Global background sync listener
+    useEffect(() => {
+        const unsubscribe = NetInfo.addEventListener(state => {
+            // Only attempt sync if we just reconnected AND the user is securely logged in
+            if (state.isConnected && user) {
+                console.log('📶 Active Network Detected. Triggering Global SyncEngine...');
+                SyncService.syncPendingLogs();
+            }
+        });
+        return () => unsubscribe();
+    }, [user]);
 
     if (isLoading) {
         return (
