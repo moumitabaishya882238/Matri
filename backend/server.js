@@ -33,9 +33,12 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI)
-  .then(() => console.log('MongoDB Connected to SahayaJeevan via Atlas'))
+// MongoDB Connection with Stability Pooling
+mongoose.connect(process.env.MONGODB_URI, {
+  maxPoolSize: 50,
+  serverSelectionTimeoutMS: 5000,
+})
+  .then(() => console.log('MongoDB Connected to SahayaJeevan via Atlas (Pool: 50)'))
   .catch(err => console.error('MongoDB connection error:', err));
 
 // Define Routes

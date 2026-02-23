@@ -151,4 +151,4 @@ const styles = StyleSheet.create({
     }
 });
 
-export default AnimatedFace;
+export default React.memo(AnimatedFace);

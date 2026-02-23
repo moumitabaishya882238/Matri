@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Easing, TouchableOpacity } from 'react-native';
 import Tts from 'react-native-tts';
 import Sound from 'react-native-sound';
+import LinearGradient from 'react-native-linear-gradient';
 
 // Enable playback in silence mode
 Sound.setCategory('Playback');
@@ -55,6 +56,7 @@ const ComfortCard = () => {
         let currentSec = durationSecs;
         setBreatheSubText(phaseName);
         setBreatheText(currentSec.toString());
+        Tts.stop();
         Tts.speak(currentSec.toString(), { androidParams: { KEY_PARAM_VOLUME: 1, KEY_PARAM_STREAM: 'STREAM_MUSIC' } });
 
         if (intervalRef.current) clearInterval(intervalRef.current);
@@ -63,6 +65,7 @@ const ComfortCard = () => {
             currentSec -= 1;
             if (currentSec > 0) {
                 setBreatheText(currentSec.toString());
+                Tts.stop();
                 Tts.speak(currentSec.toString(), { androidParams: { KEY_PARAM_VOLUME: 1, KEY_PARAM_STREAM: 'STREAM_MUSIC' } });
             } else {
                 clearInterval(intervalRef.current);
@@ -128,17 +131,43 @@ const ComfortCard = () => {
 
     const startMindfulness = () => {
         setActiveAction('mindfulness');
+        breatheAnim.setValue(1);
         Tts.stop();
         if (backgroundMusic) backgroundMusic.play();
+
+        // Endless subtle pulsing aura
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(breatheAnim, {
+                    toValue: 1.2,
+                    duration: 4000,
+                    easing: Easing.inOut(Easing.sin),
+                    useNativeDriver: true
+                }),
+                Animated.timing(breatheAnim, {
+                    toValue: 1,
+                    duration: 4000,
+                    easing: Easing.inOut(Easing.sin),
+                    useNativeDriver: true
+                })
+            ])
+        ).start();
+
         Tts.speak('Let us take a moment to rest. Please, close your eyes... Drop your shoulders... Unclench your jaw... and listen to the sound of your own breath. You are safe. You are a wonderful mother. Everything is going to be okay.', {
             androidParams: { KEY_PARAM_VOLUME: 1, KEY_PARAM_STREAM: 'STREAM_MUSIC' },
         });
     };
 
+    const getRingColor = () => {
+        if (breatheSubText === 'Hold') return '#CDB4DB'; // Soft Purple
+        if (breatheSubText === 'Exhale') return '#F4A261'; // Warm Peach
+        return '#A8D5BA'; // Calm Green for Inhale/Default
+    };
+
     return (
-        <View style={styles.container}>
+        <LinearGradient colors={['#FFFcfc', '#FFF0ED']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.container}>
             <Text style={styles.title}>You seem a little stressed today.</Text>
-            <Text style={styles.subtitle}>Take a moment for yourself. You deserve it. 🌸</Text>
+            <Text style={styles.subtitle}>Take a moment for yourself. You deserve it. </Text>
 
             {!activeAction ? (
                 <View style={styles.buttonRow}>
@@ -155,8 +184,16 @@ const ComfortCard = () => {
                     {activeAction === 'breathing' && (
                         <View style={styles.breatheContainer}>
                             <Animated.View style={[
-                                styles.breatheCircle,
-                                { transform: [{ scale: breatheAnim }] }
+                                styles.breatheCircleLayer3,
+                                { transform: [{ scale: breatheAnim }], backgroundColor: getRingColor() }
+                            ]} />
+                            <Animated.View style={[
+                                styles.breatheCircleLayer2,
+                                { transform: [{ scale: breatheAnim }], backgroundColor: getRingColor() }
+                            ]} />
+                            <Animated.View style={[
+                                styles.breatheCircleLayer1,
+                                { transform: [{ scale: breatheAnim }], backgroundColor: getRingColor() }
                             ]} />
                             <Text style={styles.breatheTextOver}>{breatheText}</Text>
                             <Text style={styles.breatheSubText}>{breatheSubText}</Text>
@@ -165,44 +202,50 @@ const ComfortCard = () => {
 
                     {activeAction === 'mindfulness' && (
                         <View style={styles.mindfulnessContainer}>
-                            <Text style={styles.mindfulnessIcon}>😌</Text>
-                            <Text style={styles.mindfulnessText}>Listen to MATRI's voice...</Text>
+                            <Animated.View style={[styles.auraCircle, { transform: [{ scale: breatheAnim }] }]} />
+                            <Text style={styles.mindfulnessIcon}>✨</Text>
+                            <Text style={styles.mindfulnessText}>Gently close your eyes...</Text>
+                            <Text style={styles.mindfulnessSubText}>Listen closely to MATRI's voice</Text>
                         </View>
                     )}
 
                     <TouchableOpacity style={styles.closeButton} onPress={stopAction}>
-                        <Text style={styles.closeText}>Stop</Text>
+                        <Text style={styles.closeText}>End Session</Text>
                     </TouchableOpacity>
                 </View>
             )}
-        </View>
+        </LinearGradient>
     );
 };
 
 const styles = StyleSheet.create({
     container: {
-        backgroundColor: '#FFEBE6', // Very soft warm pink/orange
-        borderRadius: 16,
-        padding: 20,
+        borderRadius: 24,
+        padding: 24,
         marginBottom: 20,
         alignItems: 'center',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 5,
-        elevation: 2,
+        shadowColor: "#E29578", // Warm gentle shadow
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.15,
+        shadowRadius: 25,
+        elevation: 6,
+        borderWidth: 1,
+        borderColor: 'rgba(255, 255, 255, 0.9)',
+        overflow: 'hidden'
     },
     title: {
-        fontSize: 18,
-        fontWeight: 'bold',
+        fontSize: 19,
+        fontWeight: '800',
         color: '#D4A373',
-        marginBottom: 5,
+        marginBottom: 6,
+        letterSpacing: -0.3,
     },
     subtitle: {
         fontSize: 14,
-        color: '#777',
-        marginBottom: 20,
+        color: '#8D99AE',
+        marginBottom: 24,
         textAlign: 'center',
+        fontWeight: '500',
     },
     buttonRow: {
         flexDirection: 'row',
@@ -210,20 +253,22 @@ const styles = StyleSheet.create({
         width: '100%',
     },
     actionButton: {
-        backgroundColor: '#fff',
-        paddingVertical: 12,
-        paddingHorizontal: 15,
-        borderRadius: 20,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 1,
+        backgroundColor: '#FFFFFF',
+        paddingVertical: 14,
+        paddingHorizontal: 20,
+        borderRadius: 24,
+        shadowColor: "#D4A373",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 3,
+        borderWidth: 1,
+        borderColor: '#FEFAE0',
     },
     buttonText: {
         fontSize: 14,
-        fontWeight: '600',
-        color: '#555',
+        fontWeight: '700',
+        color: '#606C38',
     },
     activeArea: {
         width: '100%',
@@ -231,56 +276,96 @@ const styles = StyleSheet.create({
         paddingVertical: 20,
     },
     breatheContainer: {
-        height: 150,
+        height: 180,
         justifyContent: 'center',
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 24,
     },
-    breatheCircle: {
+    breatheCircleLayer1: {
         width: 60,
         height: 60,
         borderRadius: 30,
-        backgroundColor: '#A8D5BA', // Soft calm green
         position: 'absolute',
-        opacity: 0.6,
+        opacity: 0.8,
+    },
+    breatheCircleLayer2: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        position: 'absolute',
+        opacity: 0.3,
+    },
+    breatheCircleLayer3: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        position: 'absolute',
+        opacity: 0.1,
     },
     breatheTextOver: {
-        fontSize: 32,
-        fontWeight: 'bold',
-        color: '#333',
+        fontSize: 42,
+        fontWeight: '300',
+        color: '#FFFFFF',
         zIndex: 10,
+        textShadowColor: 'rgba(0, 0, 0, 0.15)',
+        textShadowOffset: { width: 0, height: 2 },
+        textShadowRadius: 6,
     },
     breatheSubText: {
         fontSize: 14,
-        fontWeight: '600',
-        color: '#555',
+        fontWeight: '800',
+        color: '#FFFFFF',
         zIndex: 10,
-        marginTop: 5,
+        marginTop: 6,
+        letterSpacing: 3,
+        textTransform: 'uppercase',
+        textShadowColor: 'rgba(0, 0, 0, 0.15)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 4,
     },
     mindfulnessContainer: {
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: 24,
+        justifyContent: 'center'
+    },
+    auraCircle: {
+        width: 130,
+        height: 130,
+        borderRadius: 65,
+        backgroundColor: '#FFD6BA',
+        position: 'absolute',
+        opacity: 0.3,
     },
     mindfulnessIcon: {
-        fontSize: 50,
-        marginBottom: 10,
+        fontSize: 48,
+        marginBottom: 8,
+        zIndex: 5
     },
     mindfulnessText: {
-        fontSize: 16,
-        color: '#555',
+        fontSize: 18,
+        color: '#D4A373',
+        fontWeight: '700',
+        zIndex: 5
+    },
+    mindfulnessSubText: {
+        fontSize: 14,
+        color: '#8D99AE',
         fontStyle: 'italic',
+        marginTop: 4,
+        zIndex: 5
     },
     closeButton: {
         marginTop: 10,
-        paddingVertical: 8,
-        paddingHorizontal: 20,
-        backgroundColor: '#ccc',
-        borderRadius: 15,
+        paddingVertical: 10,
+        paddingHorizontal: 24,
+        borderRadius: 20,
+        backgroundColor: 'rgba(0,0,0,0.04)'
     },
     closeText: {
-        color: '#fff',
-        fontWeight: 'bold',
+        color: '#8D99AE',
+        fontWeight: '600',
+        fontSize: 14
     }
 });
 
-export default ComfortCard;
+export default React.memo(ComfortCard);
