@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AppNavigator from './src/navigation/AppNavigator';
+import { AuthProvider } from './src/context/AuthContext';
 import notifee, { TriggerType, RepeatFrequency, AuthorizationStatus, TimestampTrigger } from '@notifee/react-native';
 
 const App = () => {
@@ -55,7 +56,9 @@ const App = () => {
 
   return (
     <SafeAreaProvider>
-      <AppNavigator />
+      <AuthProvider>
+        <AppNavigator />
+      </AuthProvider>
     </SafeAreaProvider>
   );
 };

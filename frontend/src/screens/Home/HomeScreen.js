@@ -1,15 +1,28 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, Dimensions, ActivityIndicator, Button } from 'react-native';
+import React, { useState, useCallback, useContext } from 'react';
+import { View, Text, StyleSheet, ScrollView, Dimensions, ActivityIndicator, TouchableOpacity, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { LineChart, BarChart } from 'react-native-chart-kit';
 import client from '../../api/client';
 import ComfortCard from '../../components/ComfortCard';
+import { AuthContext } from '../../context/AuthContext';
 
 const { width } = Dimensions.get('window');
 
 const HomeScreen = ({ navigation }) => {
+    const { logout } = useContext(AuthContext);
     const [isLoading, setIsLoading] = useState(true);
     const [dashboardData, setDashboardData] = useState(null);
+
+    const handleLogout = () => {
+        Alert.alert(
+            "Logout",
+            "Are you sure you want to log out of MATRI?",
+            [
+                { text: "Cancel", style: "cancel" },
+                { text: "Yes", style: "destructive", onPress: logout }
+            ]
+        );
+    };
 
     useFocusEffect(
         useCallback(() => {
@@ -153,7 +166,12 @@ const HomeScreen = ({ navigation }) => {
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
 
             <View style={styles.header}>
-                <Text style={styles.greeting}>Good Morning, {mother?.name?.split(' ')[0] || 'Mother'}! ☀️</Text>
+                <View style={styles.headerTopRow}>
+                    <Text style={styles.greeting}>Good Morning, {mother?.name?.split(' ')[0] || 'Mother'}! ☀️</Text>
+                    <TouchableOpacity onPress={handleLogout} style={styles.logoutBtn}>
+                        <Text style={styles.logoutText}>Logout</Text>
+                    </TouchableOpacity>
+                </View>
                 <Text style={styles.dayText}>Postpartum Day: {mother?.postpartumDay || 1}</Text>
                 <Text style={styles.affirmationText}>"{getAffirmation()}"</Text>
             </View>

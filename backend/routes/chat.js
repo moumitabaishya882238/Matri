@@ -9,12 +9,10 @@ const fs = require('fs');
 // Setup multer for temporary audio storage
 const upload = multer({ dest: 'uploads/' });
 
-// Simple mock middleware since we don't have real frontend session hooked yet in phase tests
-// In production, we'd use passport ensureLogin here.
+// Require valid session
 const requireLogin = (req, res, next) => {
-    // Mock user for testing if session dies
-    if (!req.user) {
-        req.user = { _id: "650c1f1e1c9d440000a1b2c3" }; // Mock Object ID
+    if (!req.isAuthenticated()) {
+        return res.status(401).json({ error: 'Unauthorized: Please log in with Google.' });
     }
     next();
 };

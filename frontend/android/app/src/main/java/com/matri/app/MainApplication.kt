@@ -1,4 +1,4 @@
-package com.frontend
+package com.matri.app
 
 import android.app.Application
 import com.facebook.react.PackageList

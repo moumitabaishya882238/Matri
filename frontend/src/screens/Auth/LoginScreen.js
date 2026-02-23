@@ -1,23 +1,35 @@
-import React from 'react';
-import { View, Text, Button, StyleSheet } from 'react-native';
+import React, { useContext, useState } from 'react';
+import { View, Text, Button, StyleSheet, ActivityIndicator, Alert } from 'react-native';
+import { AuthContext } from '../../context/AuthContext';
 
 const LoginScreen = ({ navigation }) => {
+    const { loginWithGoogle } = useContext(AuthContext);
+    const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+    const handleLogin = async () => {
+        setIsLoggingIn(true);
+        try {
+            await loginWithGoogle();
+            // Note: We DO NOT navigate manually. 
+            // AppNavigator will automatically switch to MainTabs when 'user' state populates.
+        } catch (error) {
+            Alert.alert("Login Failed", "There was an error connecting to Google or the MATRI backend.");
+        } finally {
+            setIsLoggingIn(false);
+        }
+    };
+
     return (
         <View style={styles.container}>
             <Text style={styles.title}>Welcome to MATRI</Text>
             <Text style={styles.subtitle}>Your AI Postpartum Companion</Text>
 
             <View style={styles.buttonContainer}>
-                <Button
-                    title="Login with Google"
-                    onPress={() => {
-                        // Note: Real Google Auth requires linking & browser flow.
-                        // For now, we'll navigate mockly or open the backend URL.
-                        console.log('Google Auth Clicked');
-                        // Navigate to home temporarily for skeleton purpose
-                        navigation.replace('Home');
-                    }}
-                />
+                {isLoggingIn ? (
+                    <ActivityIndicator size="large" color="#D4A373" />
+                ) : (
+                    <Button title="Login with Google" onPress={handleLogin} color="#4285F4" />
+                )}
             </View>
         </View>
     );

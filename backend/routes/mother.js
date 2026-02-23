@@ -4,10 +4,10 @@ const DailyHealthLog = require('../models/DailyHealthLog');
 const Mother = require('../models/Mother');
 const { calculateDailyRisk } = require('../utils/riskCalculator');
 
-// Mock middleware (from chat.js)
+// Require valid session
 const requireLogin = (req, res, next) => {
-    if (!req.user) {
-        req.user = { _id: "650c1f1e1c9d440000a1b2c3" };
+    if (!req.isAuthenticated()) {
+        return res.status(401).json({ error: 'Unauthorized: Please log in with Google.' });
     }
     next();
 };
