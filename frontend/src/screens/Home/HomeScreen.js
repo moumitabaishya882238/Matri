@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Dimensions, ActivityIndicator } fro
 import { useFocusEffect } from '@react-navigation/native';
 import { LineChart, BarChart } from 'react-native-chart-kit';
 import client from '../../api/client';
+import ComfortCard from '../../components/ComfortCard';
 
 const { width } = Dimensions.get('window');
 
@@ -59,10 +60,31 @@ const HomeScreen = ({ navigation }) => {
     };
 
     const getRiskMessage = (risk) => {
-        if (risk === 'Green') return 'All vitals normal. Doing great!';
-        if (risk === 'Orange') return 'Slight irregularities detected. Please monitor.';
-        if (risk === 'Red') return 'Critical vitals detected. Please consult a doctor immediately.';
-        return 'No recent data';
+        if (risk === 'Green') return 'All vitals normal. Doing great! 🌸';
+        if (risk === 'Orange') return 'Slight irregularities detected. Please monitor. 🧘‍♀️';
+        if (risk === 'Red') return 'Critical vitals detected. Please consult a doctor immediately. 🩺';
+        return 'No recent data. Have you chatted with MATRI today?';
+    };
+
+    const getMoodEmoji = (score) => {
+        if (!score) return '';
+        if (score >= 8) return '🥰';
+        if (score >= 6) return '😌';
+        if (score >= 4) return '😐';
+        return '😔';
+    };
+
+    const getAffirmation = () => {
+        const affirmations = [
+            "You are doing an amazing job. Take a deep breath.",
+            "Your baby is lucky to have you.",
+            "It's okay to ask for help when you need it.",
+            "Every day you are getting stronger.",
+            "Remember to drink a glass of water right now!"
+        ];
+        // Pick one pseudo-randomly based on the day of the month
+        const dayIndex = new Date().getDate() % affirmations.length;
+        return affirmations[dayIndex];
     };
 
     // Prepare chart data defaults
@@ -131,8 +153,9 @@ const HomeScreen = ({ navigation }) => {
         <ScrollView style={styles.container} contentContainerStyle={styles.scrollContent}>
 
             <View style={styles.header}>
-                <Text style={styles.greeting}>Good Morning, {mother?.name?.split(' ')[0] || 'Mother'}!</Text>
+                <Text style={styles.greeting}>Good Morning, {mother?.name?.split(' ')[0] || 'Mother'}! ☀️</Text>
                 <Text style={styles.dayText}>Postpartum Day: {mother?.postpartumDay || 1}</Text>
+                <Text style={styles.affirmationText}>"{getAffirmation()}"</Text>
             </View>
 
             {/* Risk Gauge Header Area */}
@@ -156,36 +179,43 @@ const HomeScreen = ({ navigation }) => {
                     </Text>
                 </View>
                 <View style={styles.vitalBox}>
-                    <Text style={styles.vitalLabel}>Sleep</Text>
+                    <Text style={styles.vitalLabel}>Sleep 💤</Text>
                     <Text style={styles.vitalValue}>
                         {latestLog?.sleepHours ? `${latestLog.sleepHours}h` : '--'}
                     </Text>
                 </View>
                 <View style={styles.vitalBox}>
-                    <Text style={styles.vitalLabel}>Mood</Text>
+                    <Text style={styles.vitalLabel}>Mood {getMoodEmoji(latestLog?.moodScore)}</Text>
                     <Text style={styles.vitalValue}>
                         {latestLog?.moodScore ? `${latestLog.moodScore}/10` : '--'}
                     </Text>
                 </View>
             </View>
 
-            {/* Mood Chart */}
-            <View style={styles.chartContainer}>
-                <Text style={styles.chartTitle}>Mood Trend (Past 7 Days)</Text>
-                <LineChart
-                    data={moodChartData}
-                    width={width - 40} // from react-native
-                    height={220}
-                    yAxisLabel=""
-                    yAxisSuffix=" pts"
-                    yAxisInterval={1}
-                    chartConfig={chartConfig}
-                    bezier
-                    style={styles.chartStyle}
-                    fromZero={true}
-                    segments={5}
-                />
-            </View>
+            {/* Comfort Intervention (Only shows if mood is 4 or below) */}
+            {latestLog?.moodScore <= 4 && (
+                <ComfortCard />
+            )}
+
+            {/* Mood Chart (Only show if mood is > 4 to keep screen clean when stressed) */}
+            {latestLog?.moodScore > 4 && (
+                <View style={styles.chartContainer}>
+                    <Text style={styles.chartTitle}>Mood Trend (Past 7 Days)</Text>
+                    <LineChart
+                        data={moodChartData}
+                        width={width - 40} // from react-native
+                        height={220}
+                        yAxisLabel=""
+                        yAxisSuffix=" pts"
+                        yAxisInterval={1}
+                        chartConfig={chartConfig}
+                        bezier
+                        style={styles.chartStyle}
+                        fromZero={true}
+                        segments={5}
+                    />
+                </View>
+            )}
 
             {/* BP Chart */}
             <View style={styles.chartContainer}>
@@ -231,6 +261,13 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#666',
         marginTop: 5,
+        fontWeight: '500'
+    },
+    affirmationText: {
+        fontSize: 15,
+        color: '#D4A373',
+        marginTop: 12,
+        fontStyle: 'italic',
         fontWeight: '500'
     },
     riskCard: {
