@@ -57,7 +57,7 @@ router.post('/google/verify', async (req, res, next) => {
 router.get('/logout', (req, res, next) => {
     req.logout((err) => {
         if (err) { return next(err); }
-        res.redirect(process.env.FRONTEND_URL);
+        res.json({ success: true, message: 'Logged out successfully' });
     });
 });
 

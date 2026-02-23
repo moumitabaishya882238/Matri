@@ -69,11 +69,21 @@ export const AuthProvider = ({ children }) => {
     const logout = async () => {
         try {
             await client.get('/auth/logout');
-            await GoogleSignin.signOut();
-            setUser(null);
         } catch (error) {
-            console.error("Logout Error:", error);
+            console.log("Backend logout error (safe to ignore):", error.message);
         }
+
+        try {
+            const isSignedIn = await GoogleSignin.isSignedIn();
+            if (isSignedIn) {
+                await GoogleSignin.signOut();
+            }
+        } catch (error) {
+            console.log("Google native signout error:", error);
+        }
+
+        // ALWAYS clear local state
+        setUser(null);
     };
 
     return (
