@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import client from '../../api/client';
 import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 import Tts from 'react-native-tts';
+import AnimatedFace from '../../components/AnimatedFace';
 
 // Delay configuration until after initialization
 const configureTts = async () => {
@@ -29,6 +30,7 @@ const ChatScreen = () => {
     const [inputText, setInputText] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
+    const [isSpeaking, setIsSpeaking] = useState(false);
     const flatListRef = useRef();
     const audioRecorderPlayer = useRef(AudioRecorderPlayer).current;
 
@@ -36,9 +38,18 @@ const ChatScreen = () => {
     useEffect(() => {
         configureTts();
 
-        const ts = Tts.addEventListener('tts-start', event => console.log('TTS Started', event));
-        const tf = Tts.addEventListener('tts-finish', event => console.log('TTS Finished', event));
-        const te = Tts.addEventListener('tts-error', event => console.warn('TTS Error', event));
+        const ts = Tts.addEventListener('tts-start', event => {
+            console.log('TTS Started', event);
+            setIsSpeaking(true);
+        });
+        const tf = Tts.addEventListener('tts-finish', event => {
+            console.log('TTS Finished', event);
+            setIsSpeaking(false);
+        });
+        const te = Tts.addEventListener('tts-error', event => {
+            console.warn('TTS Error', event);
+            setIsSpeaking(false);
+        });
 
         return () => {
             ts.remove();
@@ -102,7 +113,11 @@ const ChatScreen = () => {
                         setIsLoading(true);
                         try {
                             await client.post('/chat/reset');
-                            setMessages([INITIAL_MESSAGE]); // Wipe chat visually
+                            setMessages([
+                                INITIAL_MESSAGE,
+                                { id: Date.now().toString(), text: "--- Today's Check-in Restarted ---", sender: 'System' }
+                            ]);
+                            Tts.stop();
                             Tts.speak(INITIAL_MESSAGE.text);
                         } catch (error) {
                             Alert.alert("Error", "Could not reset the check-in. Try again.");
@@ -198,6 +213,14 @@ const ChatScreen = () => {
     };
 
     const renderBubble = ({ item }) => {
+        if (item.sender === 'System') {
+            return (
+                <View style={styles.systemBubbleContainer}>
+                    <Text style={styles.systemText}>{item.text}</Text>
+                </View>
+            );
+        }
+
         const isBot = item.sender === 'MATRI';
         return (
             <View style={[styles.bubbleContainer, isBot ? styles.botBubbleContainer : styles.userBubbleContainer]}>
@@ -221,9 +244,13 @@ const ChatScreen = () => {
                 </TouchableOpacity>
             </View>
 
+            <View style={styles.faceContainer}>
+                <AnimatedFace isSpeaking={isSpeaking} emotion="neutral" />
+            </View>
+
             <FlatList
                 ref={flatListRef}
-                data={messages}
+                data={messages.filter(msg => msg.sender !== 'MATRI')}
                 keyExtractor={(item) => item.id}
                 renderItem={renderBubble}
                 contentContainerStyle={styles.listContent}
@@ -266,6 +293,12 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#FAF9F6',
     },
+    faceContainer: {
+        flex: 1, // Allow face to grow
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 10,
+    },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -296,6 +329,15 @@ const styles = StyleSheet.create({
     listContent: {
         padding: 15,
         paddingBottom: 20
+    },
+    systemBubbleContainer: {
+        alignItems: 'center',
+        marginVertical: 10,
+    },
+    systemText: {
+        color: '#999',
+        fontSize: 12,
+        fontStyle: 'italic',
     },
     bubbleContainer: {
         marginVertical: 5,
