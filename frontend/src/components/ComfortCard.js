@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, Animated, Easing, TouchableOpacity } from 'reac
 import Tts from 'react-native-tts';
 import Sound from 'react-native-sound';
 import LinearGradient from 'react-native-linear-gradient';
+import { useTranslation } from 'react-i18next';
 
 // Enable playback in silence mode
 Sound.setCategory('Playback');
@@ -11,12 +12,13 @@ const SOOTHING_AUDIO_URL = 'https://www.soundhelix.com/examples/mp3/SoundHelix-S
 let backgroundMusic = null;
 
 const ComfortCard = () => {
+    const { t } = useTranslation();
     const [activeAction, setActiveAction] = useState(null); // 'breathing', 'mindfulness', 'audio'
 
     // Animation Values for 4-7-8 Breathing
     const breatheAnim = useRef(new Animated.Value(1)).current;
     const [breatheText, setBreatheText] = useState('');
-    const [breatheSubText, setBreatheSubText] = useState('Inhale');
+    const [breatheSubText, setBreatheSubText] = useState(t('comfort.breathe_inhale'));
     const timeouts = useRef([]);
     const intervalRef = useRef(null);
 
@@ -86,9 +88,9 @@ const ComfortCard = () => {
         timeouts.current = [];
 
         // Chain the phases with countdowns
-        runPhase('Inhale', 4, () => {
-            runPhase('Hold', 7, () => {
-                runPhase('Exhale', 8, () => {
+        runPhase(t('comfort.breathe_inhale'), 4, () => {
+            runPhase(t('comfort.breathe_hold'), 7, () => {
+                runPhase(t('comfort.breathe_exhale'), 8, () => {
                     // The Animated.sequence loop handles the animation timing, but we need
                     // the voice timing to loop perfectly with it.
                     // By the time 'Exhale' finishes (19s total), the animation `finished` callback fires.
@@ -153,7 +155,7 @@ const ComfortCard = () => {
             ])
         ).start();
 
-        Tts.speak('Let us take a moment to rest. Please, close your eyes... Drop your shoulders... Unclench your jaw... and listen to the sound of your own breath. You are safe. You are a wonderful mother. Everything is going to be okay.', {
+        Tts.speak(t('comfort.mind_audio'), {
             androidParams: { KEY_PARAM_VOLUME: 1, KEY_PARAM_STREAM: 'STREAM_MUSIC' },
         });
     };
@@ -166,17 +168,17 @@ const ComfortCard = () => {
 
     return (
         <LinearGradient colors={['#FFFcfc', '#FFF0ED']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.container}>
-            <Text style={styles.title}>You seem a little stressed today.</Text>
-            <Text style={styles.subtitle}>Take a moment for yourself. You deserve it. </Text>
+            <Text style={styles.title}>{t('comfort.title')}</Text>
+            <Text style={styles.subtitle}>{t('comfort.subtitle')}</Text>
 
             {!activeAction ? (
                 <View style={styles.buttonRow}>
                     <TouchableOpacity style={styles.actionButton} onPress={startBreathing}>
-                        <Text style={styles.buttonText}>🫧 4-7-8 Breathing</Text>
+                        <Text style={styles.buttonText}>{t('comfort.btn_breathing')}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.actionButton} onPress={startMindfulness}>
-                        <Text style={styles.buttonText}>🧘‍♀️ Guided Rest</Text>
+                        <Text style={styles.buttonText}>{t('comfort.btn_rest')}</Text>
                     </TouchableOpacity>
                 </View>
             ) : (
@@ -204,13 +206,13 @@ const ComfortCard = () => {
                         <View style={styles.mindfulnessContainer}>
                             <Animated.View style={[styles.auraCircle, { transform: [{ scale: breatheAnim }] }]} />
                             <Text style={styles.mindfulnessIcon}>✨</Text>
-                            <Text style={styles.mindfulnessText}>Gently close your eyes...</Text>
-                            <Text style={styles.mindfulnessSubText}>Listen closely to MATRI's voice</Text>
+                            <Text style={styles.mindfulnessText}>{t('comfort.mind_close_eyes')}</Text>
+                            <Text style={styles.mindfulnessSubText}>{t('comfort.mind_listen')}</Text>
                         </View>
                     )}
 
                     <TouchableOpacity style={styles.closeButton} onPress={stopAction}>
-                        <Text style={styles.closeText}>End Session</Text>
+                        <Text style={styles.closeText}>{t('comfort.end_session')}</Text>
                     </TouchableOpacity>
                 </View>
             )}

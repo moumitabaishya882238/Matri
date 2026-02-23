@@ -2,9 +2,10 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, Button, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, TouchableOpacity, PermissionsAndroid, Modal, StatusBar } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import client from '../../api/client';
-import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 import Tts from 'react-native-tts';
+import AudioRecorderPlayer from 'react-native-audio-recorder-player';
+import { useTranslation } from 'react-i18next';
+import client from '../../api/client';
 import AnimatedFace from '../../components/AnimatedFace';
 import { useNetInfo } from '@react-native-community/netinfo';
 import OfflineStorageService from '../../services/OfflineStorageService';
@@ -30,8 +31,6 @@ const configureTts = async () => {
         await Tts.getInitStatus();
         await Tts.setDefaultLanguage('en-US');
         await Tts.setDefaultRate(0.5);
-        await Tts.setDefaultPitch(1.2);
-        console.log('✅ TTS engine initialized & configured successfully.');
     } catch (err) {
         if (err.code === 'no_engine') {
             Tts.requestInstallEngine();
@@ -40,8 +39,6 @@ const configureTts = async () => {
         }
     }
 };
-
-const INITIAL_MESSAGE = { id: '1', text: "Hello Mother! How are you feeling today?", sender: 'MATRI' };
 
 // Pure Component to heavily optimize FlatList rendering
 const ChatBubble = React.memo(({ item }) => {
@@ -64,6 +61,8 @@ const ChatBubble = React.memo(({ item }) => {
 }, (prevProps, nextProps) => prevProps.item.id === nextProps.item.id);
 
 const ChatScreen = () => {
+    const { t, i18n } = useTranslation();
+    const INITIAL_MESSAGE = { id: '0', text: t('chat.initial_message'), sender: 'MATRI' };
     const [messages, setMessages] = useState([INITIAL_MESSAGE]);
     const [inputText, setInputText] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -97,12 +96,19 @@ const ChatScreen = () => {
         const tf = Tts.addEventListener('tts-finish', event => setIsSpeaking(false));
         const te = Tts.addEventListener('tts-error', event => setIsSpeaking(false));
 
+        // Enforce native Voice Engine to match current Frontend Language
+        if (i18n.language === 'hi') {
+            Tts.setDefaultLanguage('hi-IN');
+        } else {
+            Tts.setDefaultLanguage('en-US');
+        }
+
         return () => {
             ts.remove();
             tf.remove();
             te.remove();
         };
-    }, []);
+    }, [i18n.language]);
 
     // Speak initial message on screen focus
     useFocusEffect(
@@ -160,9 +166,19 @@ const ChatScreen = () => {
         setOfflineData(currentData);
         setOfflineStep(nextStep);
 
-        const botReply = OFFLINE_QUESTIONS[nextStep === 6 ? 6 : nextStep];
+        const botReply = [
+            t('chat.offline_q1'),
+            t('chat.offline_q2'),
+            t('chat.offline_q3'),
+            t('chat.offline_q4'),
+            t('chat.offline_q5'),
+            t('chat.offline_q6'),
+            t('chat.offline_q7')
+        ][nextStep === 6 ? 6 : nextStep];
+
         const botMessage = { id: (Date.now() + 1).toString(), text: botReply, sender: 'MATRI' };
         setMessages(prev => [...prev, botMessage]);
+        Tts.stop();
         Tts.speak(botReply);
     };
 
@@ -191,8 +207,9 @@ const ChatScreen = () => {
             if (response.data.isEmergency) setShowEmergency(true);
         } catch (error) {
             console.error(error);
-            const errorMessage = { id: (Date.now() + 1).toString(), text: "Sorry, I had trouble processing that. Could you try again?", sender: 'MATRI' };
+            const errorMessage = { id: (Date.now() + 1).toString(), text: t('chat.tts_error_text'), sender: 'MATRI' };
             setMessages(prev => [...prev, errorMessage]);
+            Tts.stop();
             Tts.speak(errorMessage.text);
         } finally {
             setIsLoading(false);
@@ -202,12 +219,12 @@ const ChatScreen = () => {
 
     const handleReset = async () => {
         Alert.alert(
-            "Restart Check-in",
-            "Are you sure you want to completely erase today's health check-in and start over?",
+            t('chat.restart_title'),
+            t('chat.restart_msg'),
             [
-                { text: "Cancel", style: "cancel" },
+                { text: t('chat.restart_cancel'), style: "cancel" },
                 {
-                    text: "Yes, Restart",
+                    text: t('chat.restart_confirm'),
                     style: "destructive",
                     onPress: async () => {
                         setIsLoading(true);
@@ -215,7 +232,7 @@ const ChatScreen = () => {
                             await client.post('/chat/reset');
                             setMessages([
                                 INITIAL_MESSAGE,
-                                { id: Date.now().toString(), text: "--- Today's Check-in Restarted ---", sender: 'System' }
+                                { id: Date.now().toString(), text: t('chat.reset_success'), sender: 'System' }
                             ]);
                             Tts.stop();
                             Tts.speak(INITIAL_MESSAGE.text);
@@ -255,7 +272,7 @@ const ChatScreen = () => {
     const handleStartRecord = async () => {
         const hasPermission = await checkAndroidPermissions();
         if (!hasPermission) {
-            Alert.alert("Permission Denied", "MATRI needs microphone access to hear you.");
+            Alert.alert(t('chat.mic_denied_title'), t('chat.mic_denied_msg'));
             return;
         }
         setIsRecording(true);
@@ -274,13 +291,13 @@ const ChatScreen = () => {
 
     const sendAudioMessage = async (audioUri) => {
         if (isOffline) {
-            Alert.alert("Offline Mode", "Voice processing requires internet. Please type your responses manually for the offline check-in.");
+            Alert.alert(t('chat.offline_badge'), t('chat.voice_offline_alert'));
             return;
         }
 
         setIsLoading(true);
         const tempMsgId = Date.now().toString();
-        setMessages(prev => [...prev, { id: tempMsgId, text: "(Processing Voice...)", sender: 'Mother' }]);
+        setMessages(prev => [...prev, { id: tempMsgId, text: t('chat.processing'), sender: 'Mother' }]);
 
         try {
             const formData = new FormData();
@@ -289,6 +306,7 @@ const ChatScreen = () => {
                 type: 'audio/mp4',
                 name: 'record.mp4',
             });
+            formData.append('language', i18n.language); // Enforce voice context
 
             const response = await client.post('/chat/voice', formData, {
                 headers: { 'Content-Type': 'multipart/form-data' },
@@ -331,11 +349,11 @@ const ChatScreen = () => {
 
             <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
                 <View>
-                    <Text style={styles.headerTitle}>Clinical Check-in</Text>
-                    {isOffline && <Text style={{ color: COLORS.warning, fontSize: 13, fontWeight: '700', marginTop: 2 }}>⚠️ Offline Mode Active</Text>}
+                    <Text style={styles.headerTitle}>{t('chat.title')}</Text>
+                    {isOffline && <Text style={{ color: COLORS.warning, fontSize: 13, fontWeight: '700', marginTop: 2 }}>{t('chat.offline_badge')}</Text>}
                 </View>
                 <TouchableOpacity onPress={handleReset} style={styles.resetButton} disabled={isLoading}>
-                    <Text style={styles.resetButtonText}>Reset Session</Text>
+                    <Text style={styles.resetButtonText}>{t('chat.reset_session')}</Text>
                 </TouchableOpacity>
             </View>
 
@@ -368,7 +386,7 @@ const ChatScreen = () => {
             <View style={styles.inputContainer}>
                 <TextInput
                     style={styles.input}
-                    placeholder="Type or hold Mic..."
+                    placeholder={t('chat.placeholder')}
                     placeholderTextColor={COLORS.textMuted}
                     value={inputText}
                     onChangeText={setInputText}
@@ -405,18 +423,18 @@ const ChatScreen = () => {
                         <View style={styles.emergencyIconBg}>
                             <Text style={{ fontSize: 32 }}>🚨</Text>
                         </View>
-                        <Text style={styles.emergencyTitle}>CRITICAL ATTENTION</Text>
+                        <Text style={styles.emergencyTitle}>{t('emergency.title')}</Text>
                         <Text style={styles.emergencyText}>
-                            MATRI has detected critical health symptoms or unstable vitals based on your responses.
+                            {t('emergency.warning')}
                         </Text>
                         <Text style={[styles.emergencyText, { fontWeight: 'bold' }]}>
-                            Please contact your healthcare provider or proceed to the nearest emergency room immediately.
+                            {t('emergency.subtitle')}
                         </Text>
                         <TouchableOpacity
                             style={styles.emergencyButton}
                             onPress={() => setShowEmergency(false)}
                         >
-                            <Text style={styles.emergencyButtonText}>I Understand and Acknowledge</Text>
+                            <Text style={styles.emergencyButtonText}>{t('emergency.dismiss')}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>

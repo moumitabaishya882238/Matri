@@ -4,6 +4,9 @@ import AppNavigator from './src/navigation/AppNavigator';
 import { AuthProvider } from './src/context/AuthContext';
 import notifee, { TriggerType, RepeatFrequency, AuthorizationStatus, TimestampTrigger } from '@notifee/react-native';
 
+// Import i18n engine to load localized dictionaries on boot
+import './src/i18n';
+
 const App = () => {
 
   useEffect(() => {

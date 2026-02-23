@@ -1,0 +1,87 @@
+{
+    "home": {
+        "loading": "Loading clinical dashboard...",
+        "offline_error": "You are currently offline.",
+        "offline_download": "Please connect to the internet to download your initial clinical dashboard. Once downloaded, it will be available offline.",
+        "refresh_error": "Unable to load patient data. Please pull to refresh.",
+        "postpartum_day": "Postpartum Day",
+        "good_morning": "Good Morning",
+        "offline_title": "Offline Mode Active",
+        "offline_desc": "Connect to the internet to sync your check-ins and get the latest updates. You are viewing cached data.",
+        "clinical_status": "Clinical Status",
+        "latest_snapshot": "Latest Snapshot",
+        "blood_pressure": "Blood Pressure",
+        "sleep": "Sleep",
+        "mood": "Mood",
+        "logout": "Logout",
+        "risk": {
+            "optimal_title": "Optimal",
+            "optimal_msg": "All vitals are stable. You are doing wonderfully today.",
+            "elevated_title": "Elevated Risk",
+            "elevated_msg": "Slight irregularities detected. We kindly suggest monitoring your vitals.",
+            "critical_title": "Critical Attention",
+            "critical_msg": "Immediate medical consultation advised based on your recent logs.",
+            "stable_title": "Stable",
+            "stable_msg": "No recent anomalies detected."
+        },
+        "mood_labels": {
+            "no_data": "No Data",
+            "excellent": "Excellent",
+            "stable": "Stable",
+            "fatigued": "Fatigued",
+            "struggling": "Struggling"
+        },
+        "affirmations": [
+            "You are doing an incredible job. Rest is a medical necessity, not a luxury.",
+            "Your body performed a miracle. Give it time to heal.",
+            "It is completely normal to ask for clinical or emotional support.",
+            "Every day is a step forward in your postpartum recovery."
+        ]
+    },
+    "chat": {
+        "title": "Clinical Check-in",
+        "offline_badge": "⚠️ Offline Mode Active",
+        "reset_session": "Reset Session",
+        "placeholder": "Type medical symptom or feeling...",
+        "processing": "(Processing Voice...)",
+        "voice_offline_alert": "Voice processing requires internet. Please type your responses manually for the offline check-in.",
+        "restart_title": "Restart Check-in",
+        "restart_msg": "Are you sure you want to completely erase today's health check-in and start over?",
+        "restart_cancel": "Cancel",
+        "restart_confirm": "Yes, Restart",
+        "reset_success": "--- Today's Check-in Restarted ---",
+        "mic_denied_title": "Permission Denied",
+        "mic_denied_msg": "MATRI needs microphone access to hear you.",
+        "tts_error_voice": "Sorry, I had trouble processing your voice. Could you try again?",
+        "tts_error_text": "Sorry, I had trouble processing that. Could you try again?",
+        "initial_message": "Hello Mother! How are you feeling today?",
+        "offline_q1": "It looks like we are offline. Let's do a quick structured check-in. What was your blood pressure today? (For example, type 120/80)",
+        "offline_q2": "How would you describe your bleeding level today? (Type: none, mild, moderate, or heavy)",
+        "offline_q3": "Do you have a fever? (Type: yes or no)",
+        "offline_q4": "What is your pain level on a scale of 0 to 10?",
+        "offline_q5": "How many hours did you sleep last night?",
+        "offline_q6": "How is your mood today on a scale of 1 to 10?",
+        "offline_q7": "Thank you. Your health check-in is saved securely on your device and will sync automatically when your internet connection returns. You are safe to close the app."
+    },
+    "comfort": {
+        "title": "You seem a little stressed today.",
+        "subtitle": "Take a moment for yourself. You deserve it. 🌸",
+        "btn_breathing": "🫧 4-7-8 Breathing",
+        "btn_rest": "🧘‍♀️ Guided Rest",
+        "end_session": "End Session",
+        "breathe_inhale": "Inhale",
+        "breathe_hold": "Hold",
+        "breathe_exhale": "Exhale",
+        "mind_close_eyes": "Gently close your eyes...",
+        "mind_listen": "Listen closely to MATRI's voice",
+        "mind_audio": "Let us take a moment to rest. Please, close your eyes... Drop your shoulders... Unclench your jaw... and listen to the sound of your own breath. You are safe. You are a wonderful mother. Everything is going to be okay."
+    },
+    "emergency": {
+        "title": "MEDICAL ATTENTION ADVISED",
+        "warning": "Based on your clinical logs, your symptoms indicate a potentially serious postpartum complication.",
+        "subtitle": "PLEASE DO NOT IGNORE THESE SYMPTOMS.",
+        "call_doctor": "Call Doctor immediately",
+        "go_hospital": "Go to the nearest hospital",
+        "dismiss": "I Understand. Dismiss Alert."
+    }
+}
