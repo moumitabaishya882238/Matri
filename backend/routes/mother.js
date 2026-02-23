@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const DailyHealthLog = require('../models/DailyHealthLog');
 const Mother = require('../models/Mother');
+const { calculateDailyRisk } = require('../utils/riskCalculator');
 
 // Mock middleware (from chat.js)
 const requireLogin = (req, res, next) => {
@@ -9,25 +10,6 @@ const requireLogin = (req, res, next) => {
         req.user = { _id: "650c1f1e1c9d440000a1b2c3" };
     }
     next();
-};
-
-// Phase 6: Automated Intelligent Risk Scoring Logic
-const calculateDailyRisk = (log) => {
-    let risk = 'Green'; // Default
-
-    // Physical Risk Logic
-    if (log.systolicBP >= 140 || log.diastolicBP >= 90 || log.fever || log.bleedingLevel === 'heavy') {
-        risk = 'Red';
-    } else if (log.systolicBP >= 130 || log.diastolicBP >= 85 || log.bleedingLevel === 'moderate' || log.pain === 'severe') {
-        if (risk !== 'Red') risk = 'Orange';
-    }
-
-    // Emotional Risk Logic (Simplified pattern-based)
-    if (log.moodScore <= 3 || log.moodCategory === 'Depressed' || log.moodCategory === 'Anxious') {
-        if (risk !== 'Red') risk = 'Orange';
-    }
-
-    return risk;
 };
 
 // @route   GET /mother/dashboard

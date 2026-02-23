@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const { processChatMessage } = require('../services/geminiService');
 const DailyHealthLog = require('../models/DailyHealthLog');
+const { calculateDailyRisk } = require('../utils/riskCalculator');
 const multer = require('multer');
 const fs = require('fs');
 
@@ -97,12 +98,17 @@ router.post('/', requireLogin, async (req, res) => {
         // 5. Save to database
         await todayLog.save();
 
+        // 6. Calculate risk immediately to flag emergencies
+        const currentRisk = calculateDailyRisk(todayLog);
+        const isEmergency = (currentRisk === 'Red');
+
         res.json({
             reply: botReply,
             transcription,
             extractedData,
             emotionalState,
-            currentLog: todayLog
+            currentLog: todayLog,
+            isEmergency
         });
 
     } catch (error) {
@@ -194,12 +200,17 @@ router.post('/voice', requireLogin, upload.single('audio'), async (req, res) => 
         // 5. Save to database
         await todayLog.save();
 
+        // 6. Calculate risk immediately to flag emergencies
+        const currentRisk = calculateDailyRisk(todayLog);
+        const isEmergency = (currentRisk === 'Red');
+
         res.json({
             reply: botReply,
             transcription,
             extractedData,
             emotionalState,
-            currentLog: todayLog
+            currentLog: todayLog,
+            isEmergency
         });
 
     } catch (error) {

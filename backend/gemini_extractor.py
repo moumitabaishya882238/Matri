@@ -1,6 +1,11 @@
 import sys
 import json
 import os
+import warnings
+
+# Suppress warnings that corrupt JSON stdout
+warnings.filterwarnings("ignore")
+
 from dotenv import load_dotenv
 import google.generativeai as genai
 

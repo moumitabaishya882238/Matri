@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, Text, TextInput, Button, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, TouchableOpacity, PermissionsAndroid } from 'react-native';
+import { View, Text, TextInput, Button, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, TouchableOpacity, PermissionsAndroid, Modal } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import client from '../../api/client';
 import AudioRecorderPlayer from 'react-native-audio-recorder-player';
@@ -31,6 +31,7 @@ const ChatScreen = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [isRecording, setIsRecording] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
+    const [showEmergency, setShowEmergency] = useState(false);
     const flatListRef = useRef();
     const audioRecorderPlayer = useRef(AudioRecorderPlayer).current;
 
@@ -86,6 +87,10 @@ const ChatScreen = () => {
             const botMessage = { id: (Date.now() + 1).toString(), text: response.data.reply, sender: 'MATRI' };
             setMessages(prev => [...prev, botMessage]);
             Tts.speak(response.data.reply);
+
+            if (response.data.isEmergency) {
+                setShowEmergency(true);
+            }
         } catch (error) {
             console.error(error);
             const errorMessage = { id: (Date.now() + 1).toString(), text: "Sorry, I had trouble processing that. Could you try again?", sender: 'MATRI' };
@@ -201,6 +206,10 @@ const ChatScreen = () => {
             const botMessage = { id: (Date.now() + 1).toString(), text: botText, sender: 'MATRI' };
             setMessages(prev => [...prev, botMessage]);
 
+            if (response.data.isEmergency) {
+                setShowEmergency(true);
+            }
+
         } catch (error) {
             console.error(error);
             const errorMessage = { id: (Date.now() + 1).toString(), text: "Sorry, I had trouble processing your voice. Could you try again?", sender: 'MATRI' };
@@ -284,6 +293,33 @@ const ChatScreen = () => {
 
                 <Button title="Send" onPress={handleSend} disabled={isLoading || isRecording || !inputText.trim()} color="#D4A373" />
             </View>
+
+            {/* Emergency Modal */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={showEmergency}
+                onRequestClose={() => setShowEmergency(false)}
+            >
+                <View style={styles.emergencyOverlay}>
+                    <View style={styles.emergencyCard}>
+                        <Text style={styles.emergencyTitle}>🚨 CRITICAL VITAL SIGNS 🚨</Text>
+                        <Text style={styles.emergencyText}>
+                            MATRI has detected critical health symptoms or dangerous blood pressure levels.
+                        </Text>
+                        <Text style={styles.emergencyText}>
+                            Please stop what you are doing, contact your doctor, or proceed to the nearest emergency room immediately.
+                        </Text>
+                        <TouchableOpacity
+                            style={styles.emergencyButton}
+                            onPress={() => setShowEmergency(false)}
+                        >
+                            <Text style={styles.emergencyButtonText}>I Understand</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
         </KeyboardAvoidingView>
     );
 };
@@ -419,6 +455,47 @@ const styles = StyleSheet.create({
     },
     micButtonText: {
         fontSize: 20
+    },
+    emergencyOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20
+    },
+    emergencyCard: {
+        backgroundColor: '#fff',
+        padding: 25,
+        borderRadius: 15,
+        alignItems: 'center',
+        borderWidth: 5,
+        borderColor: '#F44336'
+    },
+    emergencyTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: '#F44336',
+        marginBottom: 15,
+        textAlign: 'center'
+    },
+    emergencyText: {
+        fontSize: 16,
+        color: '#333',
+        textAlign: 'center',
+        marginBottom: 15,
+        lineHeight: 22
+    },
+    emergencyButton: {
+        backgroundColor: '#F44336',
+        paddingVertical: 12,
+        paddingHorizontal: 30,
+        borderRadius: 25,
+        marginTop: 10
+    },
+    emergencyButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold'
     }
 });
 
