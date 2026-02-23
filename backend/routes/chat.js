@@ -46,7 +46,27 @@ router.post('/', requireLogin, async (req, res) => {
             });
         }
 
-        // 2. Prepare current state for AI Context
+        // 2a. Fetch Yesterday's log for Context Memory
+        const startOfYesterday = new Date(startOfDay);
+        startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+        const endOfYesterday = new Date(endOfDay);
+        endOfYesterday.setDate(endOfYesterday.getDate() - 1);
+
+        const yesterdayLog = await DailyHealthLog.findOne({
+            motherId: req.user._id,
+            date: { $gte: startOfYesterday, $lte: endOfYesterday }
+        });
+
+        const yesterdayState = yesterdayLog ? {
+            bp_systolic: yesterdayLog.systolicBP || null,
+            bp_diastolic: yesterdayLog.diastolicBP || null,
+            bleeding: yesterdayLog.bleedingLevel || null,
+            fever: yesterdayLog.fever !== null && yesterdayLog.fever !== undefined ? (yesterdayLog.fever ? "yes" : "no") : null,
+            pain: yesterdayLog.pain || null,
+            sleep_hours: yesterdayLog.sleepHours || null
+        } : {};
+
+        // 2b. Prepare current state for AI Context
         const currentState = {
             bp_systolic: todayLog.systolicBP || null,
             bp_diastolic: todayLog.diastolicBP || null,
@@ -57,7 +77,7 @@ router.post('/', requireLogin, async (req, res) => {
         };
 
         // 3. Process via Gemini with memory context
-        const aiResponse = await processChatMessage(message, JSON.stringify(currentState));
+        const aiResponse = await processChatMessage(message, JSON.stringify(currentState), JSON.stringify(yesterdayState));
         const extractedData = aiResponse.extracted_data || {};
         const emotionalState = aiResponse.emotional_state || {};
         const botReply = aiResponse.bot_reply || "I'm having a little trouble understanding. Could you tell me how you are feeling again?";
@@ -119,7 +139,27 @@ router.post('/voice', requireLogin, upload.single('audio'), async (req, res) => 
             });
         }
 
-        // 2. Prepare current state
+        // 2a. Fetch Yesterday's log for Context Memory
+        const startOfYesterday = new Date(startOfDay);
+        startOfYesterday.setDate(startOfYesterday.getDate() - 1);
+        const endOfYesterday = new Date(endOfDay);
+        endOfYesterday.setDate(endOfYesterday.getDate() - 1);
+
+        const yesterdayLog = await DailyHealthLog.findOne({
+            motherId: req.user._id,
+            date: { $gte: startOfYesterday, $lte: endOfYesterday }
+        });
+
+        const yesterdayState = yesterdayLog ? {
+            bp_systolic: yesterdayLog.systolicBP || null,
+            bp_diastolic: yesterdayLog.diastolicBP || null,
+            bleeding: yesterdayLog.bleedingLevel || null,
+            fever: yesterdayLog.fever !== null && yesterdayLog.fever !== undefined ? (yesterdayLog.fever ? "yes" : "no") : null,
+            pain: yesterdayLog.pain || null,
+            sleep_hours: yesterdayLog.sleepHours || null
+        } : {};
+
+        // 2b. Prepare current state
         const currentState = {
             bp_systolic: todayLog.systolicBP || null,
             bp_diastolic: todayLog.diastolicBP || null,
@@ -130,7 +170,7 @@ router.post('/voice', requireLogin, upload.single('audio'), async (req, res) => 
         };
 
         // 3. Process audio file via Gemini
-        const aiResponse = await processChatMessage(audioPath, JSON.stringify(currentState));
+        const aiResponse = await processChatMessage(audioPath, JSON.stringify(currentState), JSON.stringify(yesterdayState));
 
         // Clean up temp audio file
         fs.unlinkSync(audioPath);

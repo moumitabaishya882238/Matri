@@ -17,15 +17,16 @@ genai.configure(api_key=api_key)
 system_prompt = """You are MATRI, an empathetic, caring, and highly emotionally intelligent AI postpartum nurse companion.
 
 Context:
-MATRI performs a daily health check for postpartum mothers during the critical first 40 days after childbirth. You have access to the mother's `current_state` (which symptoms she has already told you today).
+MATRI performs a daily health check for postpartum mothers during the critical first 40 days after childbirth. You have access to the mother's `current_state` (which symptoms she has already told you today) AND her `yesterday_state` (her saved symptoms from yesterday).
 
 Behavior Guidelines (CRITICAL):
 1. **Empathy First:** You MUST always respond to the mother acknowledging her feelings. Validate her exhaustion, pain, or joy. Be deeply human, comforting, and reassuring.
 2. **One Question at a Time:** Look at the `current_state` and what she just extracted. If there are STILL missing symptoms, you MUST pick ONLY ONE missing symptom to ask about in your `bot_reply`. NEVER ask for multiple missing symptoms at once. This makes it feel like a natural conversation.
-3. **Explicit BP Rule:** If `bp_systolic` or `bp_diastolic` is missing (null) in the `current_state`, you MUST prioritize asking for her "Blood Pressure". Do not skip it.
-4. **Completion:** If the `current_state` + new data means all 6 symptoms are collected, your `bot_reply` should thank her, summarize the check-in is complete, and wish her a restful day.
-5. **No Diagnosis/Advice:** Never diagnose her or give absolute medical treatment advice. Suggest resting or drinking water, but refer serious issues to a human doctor.
-6. **Natural Tone:** Your generated `bot_reply` should sound like a warm, supportive text message from a favorite nurse.
+3. **Adaptive Risk Questioning (#1 HIGHEST PRIORITY):** If the `yesterday_state` shows *any* high-risk symptoms (e.g., severe or moderate pain, moderate or heavy bleeding, or fever='yes'), you MUST gently but explicitly prioritize asking if that specific symptom has improved today. DO NOT ask about Blood Pressure or anything else until you have asked about yesterday's severe symptoms.
+4. **Explicit BP Rule:** ONLY IF no high-risk symptoms from yesterday need addressing, and if `bp_systolic` or `bp_diastolic` is missing (null) in today's `current_state`, you MUST prioritize asking for her "Blood Pressure". Do not skip it.
+5. **Completion:** If the `current_state` + new data means all 6 symptoms are collected, your `bot_reply` should thank her, summarize the check-in is complete, and wish her a restful day.
+6. **No Diagnosis/Advice:** Never diagnose her or give absolute medical treatment advice. Suggest resting or drinking water, but refer serious issues to a human doctor.
+7. **Natural Tone:** Your generated `bot_reply` should sound like a warm, supportive text message from a favorite nurse.
 
 Task:
 Analyze the mother's message (which may be text or an audio recording). You must perform these actions:
@@ -59,7 +60,7 @@ Output Format (STRICT JSON ONLY - no other text):
   }
 }"""
 
-def extract_health_data(user_message, current_state_str):
+def extract_health_data(user_message, current_state_str, yesterday_state_str):
     try:
         # Use a stable model available for this API key
         model = genai.GenerativeModel('gemini-2.5-flash')
@@ -70,13 +71,13 @@ def extract_health_data(user_message, current_state_str):
         if is_audio:
             # Upload the file to Gemini API
             sample_file = genai.upload_file(path=user_message)
-            full_prompt = f"{system_prompt}\n\nMangoDB current_state (these are already saved, do not ask for them again):\n{current_state_str}\n\nPlease analyze the mother's voice message attached."
+            full_prompt = f"{system_prompt}\n\nYESTERDAY'S Context (for reference):\n{yesterday_state_str}\n\nTODAY'S current_state (already saved, do not ask again):\n{current_state_str}\n\nPlease analyze the mother's voice message attached."
             response = model.generate_content([full_prompt, sample_file])
             
             # Clean up the file from Gemini servers after generation
             sample_file.delete()
         else:
-            full_prompt = f"{system_prompt}\n\nMangoDB current_state (these are already saved, do not ask for them again):\n{current_state_str}\n\nMother's new message:\n\"{user_message}\""
+            full_prompt = f"{system_prompt}\n\nYESTERDAY'S Context (for reference):\n{yesterday_state_str}\n\nTODAY'S current_state (already saved, do not ask again):\n{current_state_str}\n\nMother's new message:\n\"{user_message}\""
             response = model.generate_content(full_prompt)
         text = response.text.strip()
         
@@ -105,4 +106,5 @@ if __name__ == "__main__":
         
     user_message = sys.argv[1]
     current_state_str = sys.argv[2] if len(sys.argv) > 2 else "{}"
-    extract_health_data(user_message, current_state_str)
+    yesterday_state_str = sys.argv[3] if len(sys.argv) > 3 else "{}"
+    extract_health_data(user_message, current_state_str, yesterday_state_str)
