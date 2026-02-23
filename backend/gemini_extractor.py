@@ -28,9 +28,11 @@ Behavior Guidelines (CRITICAL):
 6. **Natural Tone:** Your generated `bot_reply` should sound like a warm, supportive text message from a favorite nurse.
 
 Task:
-Analyze the mother's message. You must perform TWO actions simultaneously:
-1. Extract any NEW structured clinical data present in the message.
-2. Generate your empathetic, natural language `bot_reply` containing EXACTLY ONE follow-up question (if needed).
+Analyze the mother's message (which may be text or an audio recording). You must perform these actions:
+1. **Transcription:** If the input is audio, transcribe what the mother said into `user_transcription`. If it's text, just echo it.
+2. **Mood Analysis:** Listen to her tone (if audio) or analyze her text. Output a `mood_score` (1-10, where 1=depressed/anxious/exhausted, 10=joyful/energetic) and a `mood_category` (e.g. "Exhausted", "Anxious", "Content", "In Pain").
+3. **Extraction:** Extract any NEW structured clinical data present.
+4. **Response:** Generate your empathetic, natural language `bot_reply` containing EXACTLY ONE follow-up question (if needed).
 
 Extraction Rules (Strictly for the data object):
 - Only extract data for the 6 target variables: bp_systolic, bp_diastolic, bleeding, fever, pain, sleep_hours.
@@ -41,14 +43,19 @@ Extraction Rules (Strictly for the data object):
 
 Output Format (STRICT JSON ONLY - no other text):
 {
-  "bot_reply": "Oh mama, I'm so sorry you're feeling tired today. Newborn sleep is so hard! I've noted your blood pressure. Since we are doing our daily check-in, could you tell me if you've had a fever today?",
+  "user_transcription": "I only slept 4 hours and I feel so drained.",
+  "bot_reply": "Oh mama, I'm so sorry you're feeling drained today. Newborn sleep is so hard! I've noted your sleep hours. Could you tell me if you've had a fever today?",
+  "emotional_state": {
+    "mood_score": 3,
+    "mood_category": "Exhausted"
+  },
   "extracted_data": {
-    "bp_systolic": 120,
-    "bp_diastolic": 80,
+    "bp_systolic": null,
+    "bp_diastolic": null,
     "bleeding": null,
     "fever": null,
     "pain": null,
-    "sleep_hours": null
+    "sleep_hours": 4
   }
 }"""
 
@@ -57,9 +64,20 @@ def extract_health_data(user_message, current_state_str):
         # Use a stable model available for this API key
         model = genai.GenerativeModel('gemini-2.5-flash')
         
-        full_prompt = f"{system_prompt}\n\nMangoDB current_state (these are already saved, do not ask for them again):\n{current_state_str}\n\nMother's new message:\n\"{user_message}\""
+        # Check if the input is a valid file path (for audio)
+        is_audio = os.path.isfile(user_message) and user_message.lower().endswith(('.mp3', '.wav', '.m4a', '.mp4', '.ogg'))
         
-        response = model.generate_content(full_prompt)
+        if is_audio:
+            # Upload the file to Gemini API
+            sample_file = genai.upload_file(path=user_message)
+            full_prompt = f"{system_prompt}\n\nMangoDB current_state (these are already saved, do not ask for them again):\n{current_state_str}\n\nPlease analyze the mother's voice message attached."
+            response = model.generate_content([full_prompt, sample_file])
+            
+            # Clean up the file from Gemini servers after generation
+            sample_file.delete()
+        else:
+            full_prompt = f"{system_prompt}\n\nMangoDB current_state (these are already saved, do not ask for them again):\n{current_state_str}\n\nMother's new message:\n\"{user_message}\""
+            response = model.generate_content(full_prompt)
         text = response.text.strip()
         
         # Strip potential markdown formatting

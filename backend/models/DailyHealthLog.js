@@ -35,6 +35,14 @@ const dailyHealthLogSchema = new mongoose.Schema({
     sleepHours: {
         type: Number,
         default: null
+    },
+    moodScore: {
+        type: Number,  // 1-10 scale
+        default: null
+    },
+    moodCategory: {
+        type: String,
+        default: null
     }
 }, { timestamps: true });
 
