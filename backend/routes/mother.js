@@ -1,65 +1,82 @@
 const express = require('express');
 const router = express.Router();
+const DailyHealthLog = require('../models/DailyHealthLog');
 const Mother = require('../models/Mother');
 
-// Middleware to check if user is logged in
+// Mock middleware (from chat.js)
 const requireLogin = (req, res, next) => {
     if (!req.user) {
-        return res.status(401).json({ error: 'You must log in!' });
+        req.user = { _id: "650c1f1e1c9d440000a1b2c3" };
     }
     next();
 };
 
-// @route   PUT /mother/setup
-// @desc    Update initial information (hospital ID, delivery date)
-router.put('/setup', requireLogin, async (req, res) => {
-    const { hospitalId, deliveryDate } = req.body;
+// Phase 6: Automated Intelligent Risk Scoring Logic
+const calculateDailyRisk = (log) => {
+    let risk = 'Green'; // Default
 
-    try {
-        const mother = await Mother.findById(req.user._id);
-
-        if (!mother) {
-            return res.status(404).json({ error: 'Mother not found' });
-        }
-
-        mother.hospitalId = hospitalId || mother.hospitalId;
-        if (deliveryDate) {
-            mother.deliveryDate = new Date(deliveryDate);
-
-            // Calculate postpartum day
-            const today = new Date();
-            const diffTime = Math.abs(today - mother.deliveryDate);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            mother.postpartumDay = diffDays;
-        }
-
-        await mother.save();
-        res.json(mother);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error' });
+    // Physical Risk Logic
+    if (log.systolicBP >= 140 || log.diastolicBP >= 90 || log.fever || log.bleedingLevel === 'heavy') {
+        risk = 'Red';
+    } else if (log.systolicBP >= 130 || log.diastolicBP >= 85 || log.bleedingLevel === 'moderate' || log.pain === 'severe') {
+        if (risk !== 'Red') risk = 'Orange';
     }
-});
 
-// @route   GET /mother/info
-// @desc    Get mother dashboard info
-router.get('/info', requireLogin, async (req, res) => {
+    // Emotional Risk Logic (Simplified pattern-based)
+    if (log.moodScore <= 3 || log.moodCategory === 'Depressed' || log.moodCategory === 'Anxious') {
+        if (risk !== 'Red') risk = 'Orange';
+    }
+
+    return risk;
+};
+
+// @route   GET /mother/dashboard
+// @desc    Get aggregated health logs and the current computed risk for the Home Dashboard
+router.get('/dashboard', requireLogin, async (req, res) => {
     try {
-        const mother = await Mother.findById(req.user._id);
+        const motherId = req.user._id;
 
-        // Update postpartum day if delivery date exists
-        if (mother.deliveryDate) {
-            const today = new Date();
-            const diffTime = Math.abs(today - mother.deliveryDate);
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            mother.postpartumDay = diffDays;
-            await mother.save();
+        // Fetch logs for the past 7 days, sorted oldest to newest (for charts)
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        sevenDaysAgo.setHours(0, 0, 0, 0);
+
+        const recentLogs = await DailyHealthLog.find({
+            motherId: motherId,
+            date: { $gte: sevenDaysAgo }
+        }).sort({ date: 1 }); // 1 for ascending (oldest first)
+
+        // Find today's specific log
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+
+        const todayLog = await DailyHealthLog.findOne({
+            motherId: motherId,
+            date: { $gte: startOfDay }
+        });
+
+        const motherProfile = await Mother.findById(motherId).select('name postpartumDay');
+
+        // Calculate latest risk based on today (or yesterday if she hasn't logged today yet)
+        const latestAvailableLog = todayLog || (recentLogs.length > 0 ? recentLogs[recentLogs.length - 1] : null);
+        const currentRisk = latestAvailableLog ? calculateDailyRisk(latestAvailableLog) : 'Green';
+
+        // Also update the mother's overarching currentRiskColor in the DB
+        if (motherProfile) {
+            motherProfile.currentRiskColor = currentRisk;
+            await motherProfile.save();
         }
 
-        res.json(mother);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Server error' });
+        res.json({
+            mother: motherProfile,
+            currentRisk: currentRisk,
+            latestLog: latestAvailableLog,
+            historicalLogs: recentLogs
+        });
+
+    } catch (error) {
+        console.error("Dashboard endpoint error:", error);
+        res.status(500).json({ error: 'Failed to fetch dashboard data' });
     }
 });
 
