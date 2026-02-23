@@ -43,6 +43,26 @@ const configureTts = async () => {
 
 const INITIAL_MESSAGE = { id: '1', text: "Hello Mother! How are you feeling today?", sender: 'MATRI' };
 
+// Pure Component to heavily optimize FlatList rendering
+const ChatBubble = React.memo(({ item }) => {
+    if (item.sender === 'System') {
+        return (
+            <View style={styles.systemBubbleContainer}>
+                <Text style={styles.systemText}>{item.text}</Text>
+            </View>
+        );
+    }
+
+    const isBot = item.sender === 'MATRI';
+    return (
+        <View style={[styles.bubbleContainer, isBot ? styles.botBubbleContainer : styles.userBubbleContainer]}>
+            <View style={[styles.bubble, isBot ? styles.botBubble : styles.userBubble]}>
+                <Text style={[styles.bubbleText, isBot ? styles.botText : styles.userText]}>{item.text}</Text>
+            </View>
+        </View>
+    );
+}, (prevProps, nextProps) => prevProps.item.id === nextProps.item.id);
+
 const ChatScreen = () => {
     const [messages, setMessages] = useState([INITIAL_MESSAGE]);
     const [inputText, setInputText] = useState('');
@@ -297,24 +317,9 @@ const ChatScreen = () => {
         }
     };
 
-    const renderBubble = ({ item }) => {
-        if (item.sender === 'System') {
-            return (
-                <View style={styles.systemBubbleContainer}>
-                    <Text style={styles.systemText}>{item.text}</Text>
-                </View>
-            );
-        }
-
-        const isBot = item.sender === 'MATRI';
-        return (
-            <View style={[styles.bubbleContainer, isBot ? styles.botBubbleContainer : styles.userBubbleContainer]}>
-                <View style={[styles.bubble, isBot ? styles.botBubble : styles.userBubble]}>
-                    <Text style={[styles.bubbleText, isBot ? styles.botText : styles.userText]}>{item.text}</Text>
-                </View>
-            </View>
-        );
-    };
+    const renderBubble = useCallback(({ item }) => {
+        return <ChatBubble item={item} />;
+    }, []);
 
     return (
         <KeyboardAvoidingView
@@ -346,6 +351,11 @@ const ChatScreen = () => {
                 renderItem={renderBubble}
                 contentContainerStyle={styles.listContent}
                 onContentSizeChange={() => flatListRef.current?.scrollToEnd()}
+                // Performance Optimizations
+                removeClippedSubviews={Platform.OS === 'android'}
+                initialNumToRender={10}
+                maxToRenderPerBatch={5}
+                windowSize={5}
             />
 
             {isLoading && (
