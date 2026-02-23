@@ -43,6 +43,15 @@ const dailyHealthLogSchema = new mongoose.Schema({
     moodCategory: {
         type: String,
         default: null
+    },
+    localId: {
+        type: String,
+        unique: true,
+        sparse: true // Allows multiple nulls for older records
+    },
+    syncStatus: {
+        type: String,
+        default: 'synced'
     }
 }, { timestamps: true });
 

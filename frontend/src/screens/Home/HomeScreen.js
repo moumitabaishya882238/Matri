@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ScrollView, Dimensions, ActivityIndicator, Touc
 import { useFocusEffect } from '@react-navigation/native';
 import { LineChart } from 'react-native-chart-kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useNetInfo } from '@react-native-community/netinfo';
 import Svg, { Defs, Rect, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
 import client from '../../api/client';
 import ComfortCard from '../../components/ComfortCard';
@@ -29,6 +30,8 @@ const HomeScreen = ({ navigation }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [dashboardData, setDashboardData] = useState(null);
     const insets = useSafeAreaInsets();
+    const netInfo = useNetInfo();
+    const isOffline = netInfo.isConnected === false;
 
     useFocusEffect(
         useCallback(() => {
@@ -61,8 +64,20 @@ const HomeScreen = ({ navigation }) => {
 
     if (!dashboardData) {
         return (
-            <View style={[styles.container, styles.centerAll]}>
-                <Text style={styles.errorText}>Unable to load patient data. Please pull to refresh.</Text>
+            <View style={[styles.container, styles.centerAll, { padding: 20 }]}>
+                {isOffline ? (
+                    <>
+                        <Text style={{ fontSize: 40, marginBottom: 15 }}>📡</Text>
+                        <Text style={[styles.errorText, { textAlign: 'center', color: COLORS.warning, fontWeight: 'bold' }]}>
+                            You are currently offline.
+                        </Text>
+                        <Text style={{ textAlign: 'center', color: COLORS.textMuted, marginTop: 10 }}>
+                            Please connect to the internet to download your initial clinical dashboard. Once downloaded, it will be available offline.
+                        </Text>
+                    </>
+                ) : (
+                    <Text style={styles.errorText}>Unable to load patient data. Please pull to refresh.</Text>
+                )}
             </View>
         );
     }
@@ -167,6 +182,19 @@ const HomeScreen = ({ navigation }) => {
                         <Text style={styles.affirmationText}>"{getAffirmation()}"</Text>
                     </View>
                 </View>
+
+                {/* Offline Warning Banner */}
+                {isOffline && (
+                    <View style={styles.offlineBanner}>
+                        <Text style={styles.offlineBannerEmoji}>⚠️</Text>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.offlineBannerTitle}>Offline Mode Active</Text>
+                            <Text style={styles.offlineBannerText}>
+                                Connect to the internet to sync your check-ins and get the latest updates. You are viewing cached data.
+                            </Text>
+                        </View>
+                    </View>
+                )}
 
                 {/* Primary Clinical Status Card */}
                 <View style={styles.card}>
@@ -452,6 +480,37 @@ const styles = StyleSheet.create({
         marginTop: 15,
         borderRadius: 16,
         alignSelf: 'center',
+    },
+    offlineBanner: {
+        marginHorizontal: 20,
+        marginBottom: 20,
+        backgroundColor: '#FFFBEB',
+        borderColor: '#FEF3C7',
+        borderWidth: 1,
+        borderRadius: 16,
+        padding: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        shadowColor: '#F59E0B',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 8,
+        elevation: 2,
+    },
+    offlineBannerEmoji: {
+        fontSize: 24,
+        marginRight: 12,
+    },
+    offlineBannerTitle: {
+        fontSize: 15,
+        fontWeight: 'bold',
+        color: '#B45309',
+        marginBottom: 4,
+    },
+    offlineBannerText: {
+        fontSize: 13,
+        color: '#D97706',
+        lineHeight: 18,
     }
 });
 
