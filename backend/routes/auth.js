@@ -1,23 +1,56 @@
 const express = require('express');
-const passport = require('passport');
 const router = express.Router();
-require('../config/passport'); // Initialize passport strategy
+const Mother = require('../models/Mother');
+const { OAuth2Client } = require('google-auth-library');
 
-// @route   GET /auth/google
-// @desc    Auth with Google
-router.get('/google', passport.authenticate('google', {
-    scope: ['profile', 'email']
-}));
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-// @route   GET /auth/google/callback
-// @desc    Google auth callback
-router.get('/google/callback',
-    passport.authenticate('google', { failureRedirect: '/login-failed' }),
-    (req, res) => {
-        // Successful authentication, redirect to frontend.
-        res.redirect(`${process.env.FRONTEND_URL}/login-success`);
+// @route   POST /auth/google/verify
+// @desc    Verify Google Google identity token from React Native
+router.post('/google/verify', async (req, res, next) => {
+    const { idToken } = req.body;
+
+    if (!idToken) {
+        return res.status(400).json({ error: 'idToken is required' });
     }
-);
+
+    try {
+        // 1. Verify token cryptographically with Google
+        const ticket = await client.verifyIdToken({
+            idToken: idToken,
+            audience: process.env.GOOGLE_CLIENT_ID,
+        });
+
+        const payload = ticket.getPayload();
+        const googleId = payload['sub'];
+        const email = payload['email'];
+        const name = payload['name'];
+
+        // 2. Find or create user
+        let user = await Mother.findOne({ googleId: googleId });
+
+        if (!user) {
+            user = await new Mother({
+                googleId: googleId,
+                name: name,
+                email: email,
+            }).save();
+        }
+
+        // 3. Log user in to establish Express Session natively
+        req.login(user, (err) => {
+            if (err) {
+                console.error("Login Error:", err);
+                return next(err);
+            }
+            return res.json({ success: true, user: user });
+        });
+
+    } catch (error) {
+        console.error("Google Auth Verification Error:", error);
+        res.status(401).json({ error: 'Invalid Google Token' });
+    }
+});
 
 // @route   GET /auth/logout
 // @desc    Logout user

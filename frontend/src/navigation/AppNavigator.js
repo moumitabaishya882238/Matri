@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useContext } from 'react';
+import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { AuthContext } from '../context/AuthContext';
 
 import LoginScreen from '../screens/Auth/LoginScreen';
 import HomeScreen from '../screens/Home/HomeScreen';
@@ -25,11 +27,24 @@ const MainTabs = () => {
 };
 
 const AppNavigator = () => {
+    const { user, isLoading } = useContext(AuthContext);
+
+    if (isLoading) {
+        return (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                <ActivityIndicator size="large" color="#D4A373" />
+            </View>
+        );
+    }
+
     return (
         <NavigationContainer>
-            <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="Login" component={LoginScreen} />
-                <Stack.Screen name="Home" component={MainTabs} />
+            <Stack.Navigator screenOptions={{ headerShown: false }}>
+                {user ? (
+                    <Stack.Screen name="Main" component={MainTabs} />
+                ) : (
+                    <Stack.Screen name="Login" component={LoginScreen} />
+                )}
             </Stack.Navigator>
         </NavigationContainer>
     );
