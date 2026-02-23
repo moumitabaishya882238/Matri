@@ -21,6 +21,7 @@ const requireLogin = (req, res, next) => {
 // @desc    Receive chat message, extract data via Gemini, and log to DB
 router.post('/', requireLogin, async (req, res) => {
     const { message } = req.body;
+    const language = req.body.language || 'en';
 
     if (!message) {
         return res.status(400).json({ error: 'Message text is required' });
@@ -76,7 +77,7 @@ router.post('/', requireLogin, async (req, res) => {
         };
 
         // 3. Process via Gemini with memory context
-        const aiResponse = await processChatMessage(message, JSON.stringify(currentState), JSON.stringify(yesterdayState));
+        const aiResponse = await processChatMessage(message, JSON.stringify(currentState), JSON.stringify(yesterdayState), language);
         const extractedData = aiResponse.extracted_data || {};
         const emotionalState = aiResponse.emotional_state || {};
         const botReply = aiResponse.bot_reply || "I'm having a little trouble understanding. Could you tell me how you are feeling again?";
@@ -124,6 +125,7 @@ router.post('/voice', requireLogin, upload.single('audio'), async (req, res) => 
 
     try {
         const audioPath = req.file.path;
+        const language = req.body.language || 'en';
 
         // 1. Find if a log already exists
         const startOfDay = new Date();
@@ -174,7 +176,7 @@ router.post('/voice', requireLogin, upload.single('audio'), async (req, res) => 
         };
 
         // 3. Process audio file via Gemini
-        const aiResponse = await processChatMessage(audioPath, JSON.stringify(currentState), JSON.stringify(yesterdayState));
+        const aiResponse = await processChatMessage(audioPath, JSON.stringify(currentState), JSON.stringify(yesterdayState), language);
 
         // Clean up temp audio file
         fs.unlinkSync(audioPath);

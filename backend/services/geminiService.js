@@ -1,14 +1,14 @@
 const { spawn } = require('child_process');
 const path = require('path');
 
-const processChatMessage = (userMessage, currentStateStr = '{}', yesterdayStateStr = '{}') => {
+const processChatMessage = (userMessage, currentStateStr = '{}', yesterdayStateStr = '{}', language = 'en') => {
     return new Promise((resolve, reject) => {
         // Path to the python script
         const scriptPath = path.join(__dirname, '..', 'gemini_extractor.py');
 
         // Spawn python process
         // Use 'python' or 'python3' based on environment. 'python' is typical on Windows.
-        const pythonProcess = spawn('python', [scriptPath, userMessage, currentStateStr, yesterdayStateStr]);
+        const pythonProcess = spawn('python', [scriptPath, userMessage, currentStateStr, yesterdayStateStr, language]);
 
         let outputData = '';
         let errorData = '';

@@ -5,6 +5,7 @@ import { LineChart } from 'react-native-chart-kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNetInfo } from '@react-native-community/netinfo';
 import Svg, { Defs, Rect, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
+import { useTranslation } from 'react-i18next';
 import client from '../../api/client';
 import ComfortCard from '../../components/ComfortCard';
 import { AuthContext } from '../../context/AuthContext';
@@ -31,7 +32,13 @@ const HomeScreen = ({ navigation }) => {
     const [dashboardData, setDashboardData] = useState(null);
     const insets = useSafeAreaInsets();
     const netInfo = useNetInfo();
+    const { t, i18n } = useTranslation();
     const isOffline = netInfo.isConnected === false;
+
+    const toggleLanguage = () => {
+        const newLang = i18n.language === 'en' ? 'hi' : 'en';
+        i18n.changeLanguage(newLang);
+    };
 
     useFocusEffect(
         useCallback(() => {
@@ -57,7 +64,7 @@ const HomeScreen = ({ navigation }) => {
             <View style={[styles.container, styles.centerAll]}>
                 <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
                 <ActivityIndicator size="large" color={COLORS.primary} />
-                <Text style={styles.loadingText}>Loading clinical dashboard...</Text>
+                <Text style={styles.loadingText}>{t('home.loading')}</Text>
             </View>
         );
     }
@@ -69,14 +76,14 @@ const HomeScreen = ({ navigation }) => {
                     <>
                         <Text style={{ fontSize: 40, marginBottom: 15 }}>📡</Text>
                         <Text style={[styles.errorText, { textAlign: 'center', color: COLORS.warning, fontWeight: 'bold' }]}>
-                            You are currently offline.
+                            {t('home.offline_error')}
                         </Text>
                         <Text style={{ textAlign: 'center', color: COLORS.textMuted, marginTop: 10 }}>
-                            Please connect to the internet to download your initial clinical dashboard. Once downloaded, it will be available offline.
+                            {t('home.offline_download')}
                         </Text>
                     </>
                 ) : (
-                    <Text style={styles.errorText}>Unable to load patient data. Please pull to refresh.</Text>
+                    <Text style={styles.errorText}>{t('home.refresh_error')}</Text>
                 )}
             </View>
         );
@@ -85,32 +92,27 @@ const HomeScreen = ({ navigation }) => {
     const { mother, currentRisk, latestLog, historicalLogs } = dashboardData;
 
     const getRiskConfig = (risk) => {
-        if (risk === 'Green') return { color: COLORS.accent, title: 'Optimal', icon: '🟢', message: 'All vitals are stable. You are doing wonderfully today.' };
-        if (risk === 'Orange') return { color: COLORS.warning, title: 'Elevated Risk', icon: '🟠', message: 'Slight irregularities detected. We kindly suggest monitoring your vitals.' };
-        if (risk === 'Red') return { color: COLORS.danger, title: 'Critical Attention', icon: '🔴', message: 'Immediate medical consultation advised based on your recent logs.' };
-        return { color: COLORS.accent, title: 'Stable', icon: '🩺', message: 'No recent anomalies detected.' };
+        if (risk === 'Green') return { color: COLORS.accent, title: t('home.risk.optimal_title'), icon: '🟢', message: t('home.risk.optimal_msg') };
+        if (risk === 'Orange') return { color: COLORS.warning, title: t('home.risk.elevated_title'), icon: '🟠', message: t('home.risk.elevated_msg') };
+        if (risk === 'Red') return { color: COLORS.danger, title: t('home.risk.critical_title'), icon: '🔴', message: t('home.risk.critical_msg') };
+        return { color: COLORS.accent, title: t('home.risk.stable_title'), icon: '🩺', message: t('home.risk.stable_msg') };
     };
 
     const riskConfig = getRiskConfig(currentRisk);
 
     const getMoodDesc = (score) => {
-        if (!score) return { label: 'No Data', icon: '—' };
-        if (score >= 8) return { label: 'Excellent', icon: '😌' };
-        if (score >= 6) return { label: 'Stable', icon: '🙂' };
-        if (score >= 4) return { label: 'Fatigued', icon: '🥱' };
-        return { label: 'Struggling', icon: '😔' };
+        if (!score) return { label: t('home.mood_labels.no_data'), icon: '—' };
+        if (score >= 8) return { label: t('home.mood_labels.excellent'), icon: '😌' };
+        if (score >= 6) return { label: t('home.mood_labels.stable'), icon: '🙂' };
+        if (score >= 4) return { label: t('home.mood_labels.fatigued'), icon: '🥱' };
+        return { label: t('home.mood_labels.struggling'), icon: '😔' };
     };
 
     const moodInfo = getMoodDesc(latestLog?.moodScore);
 
     const getAffirmation = () => {
-        const affirmations = [
-            "You are doing an incredible job. Rest is a medical necessity, not a luxury.",
-            "Your body performed a miracle. Give it time to heal.",
-            "It is completely normal to ask for clinical or emotional support.",
-            "Every day is a step forward in your postpartum recovery."
-        ];
-        return affirmations[new Date().getDate() % affirmations.length];
+        const index = new Date().getDate() % 4; // 4 affirmations hardcoded in json arrays
+        return t(`home.affirmations.${index}`);
     };
 
     const daysWithData = historicalLogs.filter(log => log.moodScore || log.systolicBP);
@@ -172,9 +174,17 @@ const HomeScreen = ({ navigation }) => {
                 {/* Header Section */}
                 <View style={styles.header}>
                     <View style={styles.headerTopRow}>
-                        <View>
-                            <Text style={styles.welcomeSubtitle}>Postpartum Day {mother?.postpartumDay || 1}</Text>
-                            <Text style={styles.greeting}>Good Morning, {mother?.name?.split(' ')[0] || 'Mother'} 👋</Text>
+                        <View style={{ flex: 1 }}>
+                            <Text style={styles.welcomeSubtitle}>{t('home.postpartum_day')} {mother?.postpartumDay || 1}</Text>
+                            <Text style={styles.greeting}>{t('home.good_morning')}, {mother?.name?.split(' ')[0] || 'Mother'} 👋</Text>
+                        </View>
+                        <View style={styles.headerRightActions}>
+                            <TouchableOpacity style={styles.langToggleBtn} onPress={toggleLanguage}>
+                                <Text style={styles.langToggleText}>{i18n.language === 'en' ? '🇮🇳 HI' : '🇬🇧 EN'}</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.logoutBtn} onPress={logout}>
+                                <Text style={styles.logoutText}>{t('home.logout')}</Text>
+                            </TouchableOpacity>
                         </View>
                     </View>
 
@@ -188,9 +198,9 @@ const HomeScreen = ({ navigation }) => {
                     <View style={styles.offlineBanner}>
                         <Text style={styles.offlineBannerEmoji}>⚠️</Text>
                         <View style={{ flex: 1 }}>
-                            <Text style={styles.offlineBannerTitle}>Offline Mode Active</Text>
+                            <Text style={styles.offlineBannerTitle}>{t('home.offline_title')}</Text>
                             <Text style={styles.offlineBannerText}>
-                                Connect to the internet to sync your check-ins and get the latest updates. You are viewing cached data.
+                                {t('home.offline_desc')}
                             </Text>
                         </View>
                     </View>
@@ -199,7 +209,7 @@ const HomeScreen = ({ navigation }) => {
                 {/* Primary Clinical Status Card */}
                 <View style={styles.card}>
                     <View style={styles.cardHeader}>
-                        <Text style={styles.cardTitle}>Clinical Status</Text>
+                        <Text style={styles.cardTitle}>{t('home.clinical_status')}</Text>
                         <View style={[styles.statusBadge, { backgroundColor: riskConfig.color + '15' }]}>
                             <Text style={[styles.statusBadgeText, { color: riskConfig.color }]}>
                                 {riskConfig.icon} {riskConfig.title}
@@ -210,7 +220,7 @@ const HomeScreen = ({ navigation }) => {
                 </View>
 
                 {/* Patient Vitals Overview */}
-                <Text style={styles.sectionHeader}>Latest Snapshot</Text>
+                <Text style={styles.sectionHeader}>{t('home.latest_snapshot')}</Text>
                 <View style={styles.vitalsRow}>
                     <View style={styles.vitalBox}>
                         <View style={[styles.vitalIconBg, { backgroundColor: '#E0F2FE' }]}>
@@ -219,7 +229,7 @@ const HomeScreen = ({ navigation }) => {
                         <Text style={styles.vitalValue}>
                             {(latestLog?.systolicBP && latestLog?.diastolicBP) ? `${latestLog.systolicBP}/${latestLog.diastolicBP}` : '--/--'}
                         </Text>
-                        <Text style={styles.vitalLabel}>Blood Pressure</Text>
+                        <Text style={styles.vitalLabel}>{t('home.blood_pressure')}</Text>
                     </View>
 
                     <View style={styles.vitalBox}>
@@ -229,7 +239,7 @@ const HomeScreen = ({ navigation }) => {
                         <Text style={styles.vitalValue}>
                             {latestLog?.sleepHours ? `${latestLog.sleepHours}h` : '--'}
                         </Text>
-                        <Text style={styles.vitalLabel}>Sleep Duration</Text>
+                        <Text style={styles.vitalLabel}>{t('home.sleep')}</Text>
                     </View>
 
                     <View style={styles.vitalBox}>
@@ -345,6 +355,29 @@ const styles = StyleSheet.create({
         fontWeight: '800',
         color: COLORS.textDark,
         letterSpacing: -0.5,
+    },
+    headerRightActions: {
+        alignItems: 'flex-end',
+        justifyContent: 'center',
+    },
+    langToggleBtn: {
+        backgroundColor: COLORS.white,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        shadowColor: COLORS.textDark,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
+        elevation: 1,
+        marginBottom: 8,
+    },
+    langToggleText: {
+        color: COLORS.primary,
+        fontWeight: '800',
+        fontSize: 12,
     },
     logoutBtn: {
         backgroundColor: COLORS.white,
