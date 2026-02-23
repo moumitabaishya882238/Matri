@@ -1,10 +1,25 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, Text, TextInput, Button, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, TouchableOpacity, PermissionsAndroid, Modal } from 'react-native';
+import { View, Text, TextInput, Button, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, TouchableOpacity, PermissionsAndroid, Modal, StatusBar } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import client from '../../api/client';
 import AudioRecorderPlayer from 'react-native-audio-recorder-player';
 import Tts from 'react-native-tts';
 import AnimatedFace from '../../components/AnimatedFace';
+
+// Premium Medical Color Palette
+const COLORS = {
+    primary: '#0077CE',
+    secondary: '#E8F4F8',
+    accent: '#48BCA2',
+    warning: '#FF8A65',
+    danger: '#EF5350',
+    textDark: '#1E293B',
+    textMuted: '#64748B',
+    background: '#F8FAFC',
+    white: '#FFFFFF',
+    border: '#E2E8F0',
+};
 
 // Delay configuration until after initialization
 const configureTts = async () => {
@@ -34,23 +49,15 @@ const ChatScreen = () => {
     const [showEmergency, setShowEmergency] = useState(false);
     const flatListRef = useRef();
     const audioRecorderPlayer = useRef(AudioRecorderPlayer).current;
+    const insets = useSafeAreaInsets();
 
     // One-time setup & configure on mount
     useEffect(() => {
         configureTts();
 
-        const ts = Tts.addEventListener('tts-start', event => {
-            console.log('TTS Started', event);
-            setIsSpeaking(true);
-        });
-        const tf = Tts.addEventListener('tts-finish', event => {
-            console.log('TTS Finished', event);
-            setIsSpeaking(false);
-        });
-        const te = Tts.addEventListener('tts-error', event => {
-            console.warn('TTS Error', event);
-            setIsSpeaking(false);
-        });
+        const ts = Tts.addEventListener('tts-start', event => setIsSpeaking(true));
+        const tf = Tts.addEventListener('tts-finish', event => setIsSpeaking(false));
+        const te = Tts.addEventListener('tts-error', event => setIsSpeaking(false));
 
         return () => {
             ts.remove();
@@ -88,9 +95,7 @@ const ChatScreen = () => {
             setMessages(prev => [...prev, botMessage]);
             Tts.speak(response.data.reply);
 
-            if (response.data.isEmergency) {
-                setShowEmergency(true);
-            }
+            if (response.data.isEmergency) setShowEmergency(true);
         } catch (error) {
             console.error(error);
             const errorMessage = { id: (Date.now() + 1).toString(), text: "Sorry, I had trouble processing that. Could you try again?", sender: 'MATRI' };
@@ -98,10 +103,7 @@ const ChatScreen = () => {
             Tts.speak(errorMessage.text);
         } finally {
             setIsLoading(false);
-            // Wait a tick for render, then scroll to bottom
-            setTimeout(() => {
-                flatListRef.current?.scrollToEnd({ animated: true });
-            }, 100);
+            setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
         }
     };
 
@@ -164,7 +166,7 @@ const ChatScreen = () => {
             return;
         }
         setIsRecording(true);
-        Tts.stop(); // Stop any ongoing nurse speech
+        Tts.stop();
         await audioRecorderPlayer.startRecorder();
     };
 
@@ -179,9 +181,8 @@ const ChatScreen = () => {
 
     const sendAudioMessage = async (audioUri) => {
         setIsLoading(true);
-
         const tempMsgId = Date.now().toString();
-        setMessages(prev => [...prev, { id: tempMsgId, text: "🎤 (Voice Message)", sender: 'Mother' }]);
+        setMessages(prev => [...prev, { id: tempMsgId, text: "(Processing Voice...)", sender: 'Mother' }]);
 
         try {
             const formData = new FormData();
@@ -195,9 +196,8 @@ const ChatScreen = () => {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
 
-            // Update user message with transcript
             setMessages(prev => prev.map(msg =>
-                msg.id === tempMsgId ? { ...msg, text: `🎤 "${response.data.transcription}"` } : msg
+                msg.id === tempMsgId ? { ...msg, text: `🎙️ "${response.data.transcription}"` } : msg
             ));
 
             const botText = response.data.reply;
@@ -206,9 +206,7 @@ const ChatScreen = () => {
             const botMessage = { id: (Date.now() + 1).toString(), text: botText, sender: 'MATRI' };
             setMessages(prev => [...prev, botMessage]);
 
-            if (response.data.isEmergency) {
-                setShowEmergency(true);
-            }
+            if (response.data.isEmergency) setShowEmergency(true);
 
         } catch (error) {
             console.error(error);
@@ -246,10 +244,12 @@ const ChatScreen = () => {
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         >
-            <View style={styles.header}>
-                <Text style={styles.headerTitle}>Daily Consultation</Text>
+            <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
+
+            <View style={[styles.header, { paddingTop: Math.max(insets.top, 20) }]}>
+                <Text style={styles.headerTitle}>Clinical Check-in</Text>
                 <TouchableOpacity onPress={handleReset} style={styles.resetButton} disabled={isLoading}>
-                    <Text style={styles.resetButtonText}>Reset</Text>
+                    <Text style={styles.resetButtonText}>Reset Session</Text>
                 </TouchableOpacity>
             </View>
 
@@ -258,6 +258,7 @@ const ChatScreen = () => {
             </View>
 
             <FlatList
+                style={{ flex: 1 }}
                 ref={flatListRef}
                 data={messages.filter(msg => msg.sender !== 'MATRI')}
                 keyExtractor={(item) => item.id}
@@ -268,8 +269,8 @@ const ChatScreen = () => {
 
             {isLoading && (
                 <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color="#D4A373" />
-                    <Text style={styles.loadingText}>MATRI is thinking...</Text>
+                    <ActivityIndicator size="small" color={COLORS.primary} />
+                    <Text style={styles.loadingText}>Synthesizing clinical response...</Text>
                 </View>
             )}
 
@@ -277,6 +278,7 @@ const ChatScreen = () => {
                 <TextInput
                     style={styles.input}
                     placeholder="Type or hold Mic..."
+                    placeholderTextColor={COLORS.textMuted}
                     value={inputText}
                     onChangeText={setInputText}
                     multiline
@@ -288,10 +290,16 @@ const ChatScreen = () => {
                     style={[styles.micButton, isRecording && styles.micButtonRecording]}
                     disabled={isLoading}
                 >
-                    <Text style={styles.micButtonText}>{isRecording ? '🔴' : '🎤'}</Text>
+                    <Text style={{ fontSize: 20 }}>{isRecording ? '🔴' : '🎤'}</Text>
                 </TouchableOpacity>
 
-                <Button title="Send" onPress={handleSend} disabled={isLoading || isRecording || !inputText.trim()} color="#D4A373" />
+                <TouchableOpacity
+                    style={[styles.sendButton, (!inputText.trim() || isLoading || isRecording) && styles.sendButtonDisabled]}
+                    onPress={handleSend}
+                    disabled={isLoading || isRecording || !inputText.trim()}
+                >
+                    <Text style={styles.sendButtonText}>Send</Text>
+                </TouchableOpacity>
             </View>
 
             {/* Emergency Modal */}
@@ -303,18 +311,21 @@ const ChatScreen = () => {
             >
                 <View style={styles.emergencyOverlay}>
                     <View style={styles.emergencyCard}>
-                        <Text style={styles.emergencyTitle}>🚨 CRITICAL VITAL SIGNS 🚨</Text>
+                        <View style={styles.emergencyIconBg}>
+                            <Text style={{ fontSize: 32 }}>🚨</Text>
+                        </View>
+                        <Text style={styles.emergencyTitle}>CRITICAL ATTENTION</Text>
                         <Text style={styles.emergencyText}>
-                            MATRI has detected critical health symptoms or dangerous blood pressure levels.
+                            MATRI has detected critical health symptoms or unstable vitals based on your responses.
                         </Text>
-                        <Text style={styles.emergencyText}>
-                            Please stop what you are doing, contact your doctor, or proceed to the nearest emergency room immediately.
+                        <Text style={[styles.emergencyText, { fontWeight: 'bold' }]}>
+                            Please contact your healthcare provider or proceed to the nearest emergency room immediately.
                         </Text>
                         <TouchableOpacity
                             style={styles.emergencyButton}
                             onPress={() => setShowEmergency(false)}
                         >
-                            <Text style={styles.emergencyButtonText}>I Understand</Text>
+                            <Text style={styles.emergencyButtonText}>I Understand and Acknowledge</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -327,56 +338,66 @@ const ChatScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#FAF9F6',
+        backgroundColor: COLORS.background,
     },
     faceContainer: {
-        flex: 1, // Allow face to grow
+        height: 220,
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: COLORS.border,
     },
     header: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 15,
-        paddingVertical: 12,
-        backgroundColor: '#fff',
+        paddingHorizontal: 20,
+        paddingBottom: 15,
+        backgroundColor: COLORS.white,
         borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-        marginTop: Platform.OS === 'ios' ? 40 : 20, // push down below status bar slightly if no proper header
+        borderBottomColor: COLORS.border,
+        shadowColor: COLORS.textDark,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.03,
+        shadowRadius: 5,
+        elevation: 2,
     },
     headerTitle: {
         fontSize: 18,
-        fontWeight: 'bold',
-        color: '#333'
+        fontWeight: '700',
+        color: COLORS.textDark,
+        letterSpacing: -0.3,
     },
     resetButton: {
         paddingVertical: 6,
         paddingHorizontal: 12,
-        backgroundColor: '#ffebe6',
-        borderRadius: 15,
+        backgroundColor: '#FEF2F2',
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#FECACA'
     },
     resetButtonText: {
-        color: '#ff4d4f',
-        fontSize: 14,
-        fontWeight: '600'
+        color: COLORS.danger,
+        fontSize: 13,
+        fontWeight: '700'
     },
     listContent: {
-        padding: 15,
-        paddingBottom: 20
+        padding: 20,
+        paddingBottom: 30
     },
     systemBubbleContainer: {
         alignItems: 'center',
-        marginVertical: 10,
+        marginVertical: 15,
     },
     systemText: {
-        color: '#999',
+        color: COLORS.textMuted,
         fontSize: 12,
         fontStyle: 'italic',
+        fontWeight: '600'
     },
     bubbleContainer: {
-        marginVertical: 5,
+        marginVertical: 8,
         flexDirection: 'row',
     },
     botBubbleContainer: {
@@ -386,116 +407,161 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-end',
     },
     bubble: {
-        maxWidth: '80%',
-        padding: 12,
-        borderRadius: 16,
+        maxWidth: '85%',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 20,
+        shadowColor: COLORS.textDark,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
+        elevation: 1,
     },
     botBubble: {
-        backgroundColor: '#fff',
+        backgroundColor: COLORS.white,
         borderWidth: 1,
-        borderColor: '#eee',
-        borderBottomLeftRadius: 4,
+        borderColor: COLORS.border,
+        borderBottomLeftRadius: 6,
     },
     userBubble: {
-        backgroundColor: '#D4A373',
-        borderBottomRightRadius: 4,
+        backgroundColor: COLORS.primary,
+        borderBottomRightRadius: 6,
     },
     bubbleText: {
         fontSize: 16,
         lineHeight: 22,
     },
     botText: {
-        color: '#333',
+        color: COLORS.textDark,
     },
     userText: {
-        color: '#fff',
+        color: COLORS.white,
+        fontWeight: '500'
     },
     loadingContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        padding: 10,
-        paddingLeft: 20,
+        paddingHorizontal: 20,
+        paddingBottom: 10,
     },
     loadingText: {
         marginLeft: 10,
-        color: '#999',
-        fontSize: 14,
+        color: COLORS.textMuted,
+        fontSize: 13,
+        fontWeight: '600',
         fontStyle: 'italic',
     },
     inputContainer: {
         flexDirection: 'row',
-        padding: 10,
-        backgroundColor: '#fff',
+        padding: 15,
+        paddingBottom: Platform.OS === 'ios' ? 25 : 15,
+        backgroundColor: COLORS.white,
         borderTopWidth: 1,
-        borderColor: '#eee',
-        alignItems: 'center'
+        borderColor: COLORS.border,
+        alignItems: 'center',
+        shadowColor: COLORS.textDark,
+        shadowOffset: { width: 0, height: -4 },
+        shadowOpacity: 0.03,
+        shadowRadius: 5,
+        elevation: 10,
     },
     input: {
         flex: 1,
-        backgroundColor: '#f5f5f5',
-        borderRadius: 20,
-        paddingHorizontal: 15,
-        paddingVertical: 10,
-        maxHeight: 100,
+        backgroundColor: COLORS.background,
+        borderRadius: 25,
+        paddingHorizontal: 18,
+        paddingTop: 12,
+        paddingBottom: 12,
+        maxHeight: 120,
         fontSize: 16,
-        marginRight: 10
+        marginRight: 10,
+        borderWidth: 1,
+        borderColor: COLORS.border,
+        minHeight: 45,
     },
     micButton: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: '#f5f5f5',
+        width: 46,
+        height: 46,
+        borderRadius: 23,
+        backgroundColor: COLORS.secondary,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 8,
+        marginRight: 10,
     },
     micButtonRecording: {
-        backgroundColor: '#ffebe6',
-        transform: [{ scale: 1.1 }]
+        backgroundColor: '#FEE2E2',
+        transform: [{ scale: 1.15 }]
     },
-    micButtonText: {
-        fontSize: 20
+    sendButton: {
+        backgroundColor: COLORS.primary,
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 25,
+    },
+    sendButtonDisabled: {
+        backgroundColor: '#94A3B8',
+    },
+    sendButtonText: {
+        color: COLORS.white,
+        fontWeight: '700',
+        fontSize: 15,
     },
     emergencyOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.7)',
+        backgroundColor: 'rgba(15, 23, 42, 0.85)',
         justifyContent: 'center',
         alignItems: 'center',
         padding: 20
     },
     emergencyCard: {
-        backgroundColor: '#fff',
-        padding: 25,
-        borderRadius: 15,
+        backgroundColor: COLORS.white,
+        padding: 30,
+        borderRadius: 24,
         alignItems: 'center',
-        borderWidth: 5,
-        borderColor: '#F44336'
+        width: '100%',
+        shadowColor: COLORS.danger,
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.2,
+        shadowRadius: 20,
+        elevation: 10,
+    },
+    emergencyIconBg: {
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        backgroundColor: '#FEE2E2',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 20,
     },
     emergencyTitle: {
         fontSize: 22,
-        fontWeight: 'bold',
-        color: '#F44336',
+        fontWeight: '800',
+        color: COLORS.danger,
         marginBottom: 15,
-        textAlign: 'center'
+        textAlign: 'center',
+        letterSpacing: 0.5,
     },
     emergencyText: {
         fontSize: 16,
-        color: '#333',
+        color: COLORS.textDark,
         textAlign: 'center',
         marginBottom: 15,
-        lineHeight: 22
+        lineHeight: 24,
     },
     emergencyButton: {
-        backgroundColor: '#F44336',
-        paddingVertical: 12,
-        paddingHorizontal: 30,
-        borderRadius: 25,
-        marginTop: 10
+        backgroundColor: COLORS.danger,
+        paddingVertical: 16,
+        paddingHorizontal: 20,
+        borderRadius: 30,
+        marginTop: 15,
+        width: '100%',
     },
     emergencyButtonText: {
-        color: '#fff',
+        color: COLORS.white,
         fontSize: 16,
-        fontWeight: 'bold'
+        fontWeight: '800',
+        textAlign: 'center',
     }
 });
 

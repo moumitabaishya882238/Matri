@@ -1,5 +1,5 @@
 import React, { useContext } from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import { View, ActivityIndicator, TouchableOpacity, Text, Alert } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -13,14 +13,46 @@ const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
 const MainTabs = () => {
+    const { logout } = useContext(AuthContext);
+
+    const handleLogout = () => {
+        Alert.alert(
+            "Secure Logout",
+            "Are you sure you want to log out of your MATRI portal?",
+            [
+                { text: "Cancel", style: "cancel" },
+                { text: "Yes, Log Out", style: "destructive", onPress: logout }
+            ]
+        );
+    };
+
     return (
         <Tab.Navigator
             screenOptions={{
-                tabBarActiveTintColor: '#D4A373',
-                tabBarInactiveTintColor: 'gray',
+                tabBarActiveTintColor: '#0077CE',
+                tabBarInactiveTintColor: '#64748B',
+                tabBarIcon: () => null, // Explicitly return null to remove the missing icon cross
+                tabBarLabelStyle: {
+                    fontSize: 16,
+                    fontWeight: '700',
+                    textAlign: 'center'
+                },
+                tabBarStyle: {
+                    height: 60,
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                },
+                tabBarItemStyle: {
+                    justifyContent: 'center',
+                },
+                headerRight: () => (
+                    <TouchableOpacity onPress={handleLogout} style={{ marginRight: 15 }}>
+                        <Text style={{ color: '#EF5350', fontWeight: 'bold' }}>Log Out</Text>
+                    </TouchableOpacity>
+                ),
             }}
         >
-            <Tab.Screen name="Dashboard" component={HomeScreen} options={{ title: 'Home' }} />
+            <Tab.Screen name="Dashboard" component={HomeScreen} options={{ title: 'Clinical Dashboard' }} />
             <Tab.Screen name="Chat" component={ChatScreen} options={{ title: 'Daily Check-in' }} />
         </Tab.Navigator>
     );
