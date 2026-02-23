@@ -1,6 +1,26 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, TextInput, Button, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { View, Text, TextInput, Button, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Alert, TouchableOpacity, PermissionsAndroid } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import client from '../../api/client';
+import AudioRecorderPlayer from 'react-native-audio-recorder-player';
+import Tts from 'react-native-tts';
+
+// Delay configuration until after initialization
+const configureTts = async () => {
+    try {
+        await Tts.getInitStatus();
+        await Tts.setDefaultLanguage('en-US');
+        await Tts.setDefaultRate(0.5);
+        await Tts.setDefaultPitch(1.2);
+        console.log('✅ TTS engine initialized & configured successfully.');
+    } catch (err) {
+        if (err.code === 'no_engine') {
+            Tts.requestInstallEngine();
+        } else {
+            console.warn('❌ TTS Initialization failed:', err);
+        }
+    }
+};
 
 const INITIAL_MESSAGE = { id: '1', text: "Hello Mother! How are you feeling today?", sender: 'MATRI' };
 
@@ -8,7 +28,39 @@ const ChatScreen = () => {
     const [messages, setMessages] = useState([INITIAL_MESSAGE]);
     const [inputText, setInputText] = useState('');
     const [isLoading, setIsLoading] = useState(false);
+    const [isRecording, setIsRecording] = useState(false);
     const flatListRef = useRef();
+    const audioRecorderPlayer = useRef(AudioRecorderPlayer).current;
+
+    // One-time setup & configure on mount
+    useEffect(() => {
+        configureTts();
+
+        const ts = Tts.addEventListener('tts-start', event => console.log('TTS Started', event));
+        const tf = Tts.addEventListener('tts-finish', event => console.log('TTS Finished', event));
+        const te = Tts.addEventListener('tts-error', event => console.warn('TTS Error', event));
+
+        return () => {
+            ts.remove();
+            tf.remove();
+            te.remove();
+        };
+    }, []);
+
+    // Speak initial message on screen focus
+    useFocusEffect(
+        useCallback(() => {
+            let isActive = true;
+            Tts.getInitStatus().then(() => {
+                if (isActive) Tts.speak(INITIAL_MESSAGE.text);
+            }).catch(err => console.log('TTS Focus Init Error:', err));
+
+            return () => {
+                isActive = false;
+                Tts.stop();
+            };
+        }, [])
+    );
 
     const handleSend = async () => {
         if (!inputText.trim()) return;
@@ -22,10 +74,12 @@ const ChatScreen = () => {
             const response = await client.post('/chat', { message: userMessage.text });
             const botMessage = { id: (Date.now() + 1).toString(), text: response.data.reply, sender: 'MATRI' };
             setMessages(prev => [...prev, botMessage]);
+            Tts.speak(response.data.reply);
         } catch (error) {
             console.error(error);
             const errorMessage = { id: (Date.now() + 1).toString(), text: "Sorry, I had trouble processing that. Could you try again?", sender: 'MATRI' };
             setMessages(prev => [...prev, errorMessage]);
+            Tts.speak(errorMessage.text);
         } finally {
             setIsLoading(false);
             // Wait a tick for render, then scroll to bottom
@@ -49,6 +103,7 @@ const ChatScreen = () => {
                         try {
                             await client.post('/chat/reset');
                             setMessages([INITIAL_MESSAGE]); // Wipe chat visually
+                            Tts.speak(INITIAL_MESSAGE.text);
                         } catch (error) {
                             Alert.alert("Error", "Could not reset the check-in. Try again.");
                             console.error(error);
@@ -59,6 +114,87 @@ const ChatScreen = () => {
                 }
             ]
         );
+    };
+
+    const checkAndroidPermissions = async () => {
+        if (Platform.OS === 'android') {
+            try {
+                const grants = await PermissionsAndroid.requestMultiple([
+                    PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+                    PermissionsAndroid.PERMISSIONS.READ_EXTERNAL_STORAGE,
+                    PermissionsAndroid.PERMISSIONS.RECORD_AUDIO,
+                ]);
+                return (
+                    grants['android.permission.WRITE_EXTERNAL_STORAGE'] === PermissionsAndroid.RESULTS.GRANTED &&
+                    grants['android.permission.READ_EXTERNAL_STORAGE'] === PermissionsAndroid.RESULTS.GRANTED &&
+                    grants['android.permission.RECORD_AUDIO'] === PermissionsAndroid.RESULTS.GRANTED
+                );
+            } catch (err) {
+                console.warn(err);
+                return false;
+            }
+        }
+        return true;
+    };
+
+    const handleStartRecord = async () => {
+        const hasPermission = await checkAndroidPermissions();
+        if (!hasPermission) {
+            Alert.alert("Permission Denied", "MATRI needs microphone access to hear you.");
+            return;
+        }
+        setIsRecording(true);
+        Tts.stop(); // Stop any ongoing nurse speech
+        await audioRecorderPlayer.startRecorder();
+    };
+
+    const handleStopRecord = async () => {
+        if (!isRecording) return;
+        setIsRecording(false);
+        const result = await audioRecorderPlayer.stopRecorder();
+        audioRecorderPlayer.removeRecordBackListener();
+
+        await sendAudioMessage(result);
+    };
+
+    const sendAudioMessage = async (audioUri) => {
+        setIsLoading(true);
+
+        const tempMsgId = Date.now().toString();
+        setMessages(prev => [...prev, { id: tempMsgId, text: "🎤 (Voice Message)", sender: 'Mother' }]);
+
+        try {
+            const formData = new FormData();
+            formData.append('audio', {
+                uri: Platform.OS === 'android' ? audioUri : audioUri.replace('file://', ''),
+                type: 'audio/mp4',
+                name: 'record.mp4',
+            });
+
+            const response = await client.post('/chat/voice', formData, {
+                headers: { 'Content-Type': 'multipart/form-data' },
+            });
+
+            // Update user message with transcript
+            setMessages(prev => prev.map(msg =>
+                msg.id === tempMsgId ? { ...msg, text: `🎤 "${response.data.transcription}"` } : msg
+            ));
+
+            const botText = response.data.reply;
+            Tts.speak(botText);
+
+            const botMessage = { id: (Date.now() + 1).toString(), text: botText, sender: 'MATRI' };
+            setMessages(prev => [...prev, botMessage]);
+
+        } catch (error) {
+            console.error(error);
+            const errorMessage = { id: (Date.now() + 1).toString(), text: "Sorry, I had trouble processing your voice. Could you try again?", sender: 'MATRI' };
+            setMessages(prev => [...prev, errorMessage]);
+            Tts.speak(errorMessage.text);
+        } finally {
+            setIsLoading(false);
+            setTimeout(() => flatListRef.current?.scrollToEnd({ animated: true }), 100);
+        }
     };
 
     const renderBubble = ({ item }) => {
@@ -104,12 +240,22 @@ const ChatScreen = () => {
             <View style={styles.inputContainer}>
                 <TextInput
                     style={styles.input}
-                    placeholder="For example: My BP is 120/80..."
+                    placeholder="Type or hold Mic..."
                     value={inputText}
                     onChangeText={setInputText}
                     multiline
                 />
-                <Button title="Send" onPress={handleSend} disabled={isLoading} color="#D4A373" />
+
+                <TouchableOpacity
+                    onPressIn={handleStartRecord}
+                    onPressOut={handleStopRecord}
+                    style={[styles.micButton, isRecording && styles.micButtonRecording]}
+                    disabled={isLoading}
+                >
+                    <Text style={styles.micButtonText}>{isRecording ? '🔴' : '🎤'}</Text>
+                </TouchableOpacity>
+
+                <Button title="Send" onPress={handleSend} disabled={isLoading || isRecording || !inputText.trim()} color="#D4A373" />
             </View>
         </KeyboardAvoidingView>
     );
@@ -215,6 +361,22 @@ const styles = StyleSheet.create({
         maxHeight: 100,
         fontSize: 16,
         marginRight: 10
+    },
+    micButton: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#f5f5f5',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 8,
+    },
+    micButtonRecording: {
+        backgroundColor: '#ffebe6',
+        transform: [{ scale: 1.1 }]
+    },
+    micButtonText: {
+        fontSize: 20
     }
 });
 
