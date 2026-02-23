@@ -17,7 +17,7 @@ const App = () => {
           sound: 'default',
         });
 
-        // Set trigger for 10:00 AM every day
+        // Set trigger for 10:00 AM every day yes
         const date = new Date(Date.now());
         date.setHours(10, 0, 0, 0);
 
